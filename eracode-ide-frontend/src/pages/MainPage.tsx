@@ -57,10 +57,10 @@ export default function MainPage() {
   return (
     <div className="h-screen w-full flex flex-col bg-dark-surface text-text-primary overflow-hidden">
       <div className="flex flex-1 overflow-hidden">
-        {/* Left: Sidebar */}
+        {/* Left: Sidebar - Pass activeItem ONLY if panel is open */}
         <Sidebar 
           onItemClick={handleSidebarClick}
-          activeItem={activePanel}
+          activeItem={showPanel ? activePanel : ''} // ✅ KEY CHANGE: Empty when closed
         />
 
         {/* Dynamic Panel (Animated) */}
@@ -78,13 +78,21 @@ export default function MainPage() {
           <div className="flex-1 flex items-center justify-center bg-dark-surface">
             <div className="text-center space-y-4">
               <h1 className="text-4xl font-bold">📝 EraCode IDE</h1>
-              <p className="text-text-secondary">14 Panel Components Ready!</p>
+              <p className="text-text-secondary">
+                {showPanel ? `${activePanel} Panel Open` : 'All Panels Closed'}
+              </p>
               <div className="text-sm text-text-secondary bg-dark-hover p-4 rounded-lg border border-dark-border max-w-md">
-                <p className="mb-2">✅ Sidebar - 14 items</p>
+                <p className="mb-2">✅ Sidebar - Ultra Bright</p>
                 <p className="mb-2">✅ 14 Panel Components</p>
-                <p className="mb-2 text-green-400">✅ Dynamic Switching</p>
+                <p className="mb-2 text-green-400">✅ Smart Highlighting</p>
                 <p className="text-xs mt-3 text-text-secondary">
-                  Click any sidebar icon to see its panel!
+                  {showPanel 
+                    ? '💡 Highlight ON (panel open)' 
+                    : '⚫ Highlight OFF (panel closed)'
+                  }
+                </p>
+                <p className="text-xs mt-2 text-text-secondary">
+                  Click the same icon to toggle panel on/off
                 </p>
               </div>
             </div>
