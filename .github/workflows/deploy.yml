@@ -46,7 +46,7 @@ jobs:
         ssh ubuntu@${{ secrets.EC2_HOST }} "mkdir -p /tmp/eracode-build"
         
         # Copy build files (use 'dist' for Vite or 'build' for CRA)
-        scp -r eracode-ide-frontend/build/* ubuntu@${{ secrets.EC2_HOST }}:/tmp/eracode-build/
+        scp -r eracode-ide-frontend/dist/* ubuntu@${{ secrets.EC2_HOST }}:/tmp/eracode-build/
         
         # Move to final location
         ssh ubuntu@${{ secrets.EC2_HOST }} "sudo mv /tmp/eracode-build/* /var/www/eracode-ide-frontend/"
