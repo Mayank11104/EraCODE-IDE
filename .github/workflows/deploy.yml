@@ -1,0 +1,61 @@
+name: Deploy EraCode IDE Frontend to EC2
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+        cache-dependency-path: 'eracode-ide-frontend/package-lock.json'
+    
+    - name: Install dependencies
+      working-directory: ./eracode-ide-frontend
+      run: npm ci
+    
+    - name: Build React app
+      working-directory: ./eracode-ide-frontend
+      run: npm run build
+      env:
+        CI: false
+    
+    - name: Setup SSH
+      run: |
+        mkdir -p ~/.ssh
+        echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/id_rsa
+        chmod 600 ~/.ssh/id_rsa
+        ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
+    
+    - name: Deploy to EC2
+      run: |
+        # Clear old files
+        ssh ubuntu@${{ secrets.EC2_HOST }} "sudo rm -rf /var/www/eracode-ide-frontend/*"
+        
+        # Create temp directory
+        ssh ubuntu@${{ secrets.EC2_HOST }} "mkdir -p /tmp/eracode-build"
+        
+        # Copy build files (use 'dist' for Vite or 'build' for CRA)
+        scp -r eracode-ide-frontend/build/* ubuntu@${{ secrets.EC2_HOST }}:/tmp/eracode-build/
+        
+        # Move to final location
+        ssh ubuntu@${{ secrets.EC2_HOST }} "sudo mv /tmp/eracode-build/* /var/www/eracode-ide-frontend/"
+        
+        # Set permissions
+        ssh ubuntu@${{ secrets.EC2_HOST }} "sudo chown -R www-data:www-data /var/www/eracode-ide-frontend"
+        
+        # Restart nginx
+        ssh ubuntu@${{ secrets.EC2_HOST }} "sudo systemctl restart nginx"
+        
+        # Cleanup temp
+        ssh ubuntu@${{ secrets.EC2_HOST }} "rm -rf /tmp/eracode-build"
