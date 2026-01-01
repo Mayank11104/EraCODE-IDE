@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Bot } from 'lucide-react'
+import { Bot, Terminal as TerminalIcon } from 'lucide-react'
 import Sidebar from '../components/Sidebar'
 import AgentPanel from '../components/AgentPanel'
 
@@ -19,6 +19,7 @@ import VisualizerPanel from '../components/panels/VisualizerPanel'
 // Import CENTER pages
 import WelcomePage from './WelcomePage'
 import EditorPage from './EditorPage'
+import TerminalPage from './TerminalPage'
 
 // Import store
 import { useEditorStore } from '../stores/editorStore'
@@ -33,6 +34,9 @@ export default function MainPage() {
   
   // Right agent panel state
   const [showAgentPanel, setShowAgentPanel] = useState(false)
+  
+  // Terminal state
+  const [showTerminal, setShowTerminal] = useState(false)
   
   // Center page state - starts as welcome, switches to editor once a file is opened
   const [showEditor, setShowEditor] = useState(false)
@@ -75,73 +79,109 @@ export default function MainPage() {
 
   return (
     <div className="h-screen w-full flex flex-col bg-dark-surface text-text-primary overflow-hidden">
-      {/* Top Bar with AI Agent Button */}
+      {/* Top Bar with Terminal & AI Agent Buttons */}
       <div className="h-10 bg-dark-header border-b border-dark-border flex items-center justify-between px-4 shrink-0">
         <div className="flex items-center gap-3">
           <h1 className="text-lg font-bold text-text-primary">EraCODE IDE</h1>
         </div>
 
-        {/* AI Agent Toggle Button */}
-        <button
-          onClick={() => setShowAgentPanel(!showAgentPanel)}
-          className={`
-            flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all
-            ${showAgentPanel
-              ? 'bg-purple-500/20 border-2 border-purple-400 text-purple-400 shadow-[0_0_15px_rgba(168,85,247,0.5)]'
-              : 'bg-dark-surface border border-dark-border text-text-secondary hover:border-purple-400/50 hover:text-purple-400'
-            }
-          `}
-          title="Toggle AI Agent"
-        >
-          <Bot 
-            size={18} 
-            className={`transition-all ${
-              showAgentPanel 
-                ? 'drop-shadow-[0_0_8px_rgba(168,85,247,1)]' 
-                : ''
-            }`}
-          />
-          <span className="text-xs font-medium">
-            {showAgentPanel ? 'AI Agent Active' : 'Open AI Agent'}
-          </span>
-          <kbd className="px-1.5 py-0.5 bg-dark-base rounded text-[10px]">
-            Ctrl+L
-          </kbd>
-        </button>
+        <div className="flex items-center gap-3">
+          {/* Terminal Toggle Button */}
+          <button
+            onClick={() => setShowTerminal(!showTerminal)}
+            className={`
+              flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all
+              ${showTerminal
+                ? 'bg-blue-500/20 border-2 border-blue-400 text-blue-400 shadow-[0_0_15px_rgba(59,130,246,0.5)]'
+                : 'bg-dark-surface border border-dark-border text-text-secondary hover:border-blue-400/50 hover:text-blue-400'
+              }
+            `}
+            title="Toggle Terminal"
+          >
+            <TerminalIcon 
+              size={18} 
+              className={`transition-all ${
+                showTerminal 
+                  ? 'drop-shadow-[0_0_8px_rgba(59,130,246,1)]' 
+                  : ''
+              }`}
+            />
+            <span className="text-xs font-medium">
+              {showTerminal ? 'Terminal Active' : 'Open Terminal'}
+            </span>
+            <kbd className="px-1.5 py-0.5 bg-dark-base rounded text-[10px]">
+              Ctrl+`
+            </kbd>
+          </button>
+
+          {/* AI Agent Toggle Button */}
+          <button
+            onClick={() => setShowAgentPanel(!showAgentPanel)}
+            className={`
+              flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all
+              ${showAgentPanel
+                ? 'bg-purple-500/20 border-2 border-purple-400 text-purple-400 shadow-[0_0_15px_rgba(168,85,247,0.5)]'
+                : 'bg-dark-surface border border-dark-border text-text-secondary hover:border-purple-400/50 hover:text-purple-400'
+              }
+            `}
+            title="Toggle AI Agent"
+          >
+            <Bot 
+              size={18} 
+              className={`transition-all ${
+                showAgentPanel 
+                  ? 'drop-shadow-[0_0_8px_rgba(168,85,247,1)]' 
+                  : ''
+              }`}
+            />
+            <span className="text-xs font-medium">
+              {showAgentPanel ? 'AI Agent Active' : 'Open AI Agent'}
+            </span>
+            <kbd className="px-1.5 py-0.5 bg-dark-base rounded text-[10px]">
+              Ctrl+L
+            </kbd>
+          </button>
+        </div>
       </div>
 
       {/* Main Content Area */}
-      <div className="flex flex-1 overflow-hidden">
-        {/* Left: Sidebar */}
-        <Sidebar 
-          onItemClick={handleSidebarClick}
-          activeItem={showLeftPanel ? activeLeftPanel : ''}
-        />
+      <div className="flex flex-col flex-1 overflow-hidden">
+        {/* Top Section: Sidebar + Panels + Editor + Agent */}
+        <div className="flex flex-1 overflow-hidden">
+          {/* Left: Sidebar */}
+          <Sidebar 
+            onItemClick={handleSidebarClick}
+            activeItem={showLeftPanel ? activeLeftPanel : ''}
+          />
 
-        {/* Left Panel */}
-        <div 
-          className={`
-            transition-all duration-300 ease-in-out overflow-hidden
-            ${showLeftPanel ? 'opacity-100' : 'w-0 opacity-0'}
-          `}
-        >
-          {renderLeftPanel()}
+          {/* Left Panel */}
+          <div 
+            className={`
+              transition-all duration-300 ease-in-out overflow-hidden
+              ${showLeftPanel ? 'opacity-100' : 'w-0 opacity-0'}
+            `}
+          >
+            {renderLeftPanel()}
+          </div>
+
+          {/* Center: Welcome OR Editor */}
+          <div className="flex-1 flex flex-col min-w-0">
+            {showEditor ? <EditorPage /> : <WelcomePage />}
+          </div>
+
+          {/* Right: Agent Panel */}
+          <div 
+            className={`
+              transition-all duration-300 ease-in-out overflow-hidden
+              ${showAgentPanel ? 'w-[340px] opacity-100' : 'w-0 opacity-0'}
+            `}
+          >
+            {showAgentPanel && <AgentPanel onClose={() => setShowAgentPanel(false)} />}
+          </div>
         </div>
 
-        {/* Center: Welcome OR Editor (permanent switch) */}
-        <div className="flex-1 flex flex-col min-w-0">
-          {showEditor ? <EditorPage /> : <WelcomePage />}
-        </div>
-
-        {/* Right: Agent Panel */}
-        <div 
-          className={`
-            transition-all duration-300 ease-in-out overflow-hidden
-            ${showAgentPanel ? 'w-[340px] opacity-100' : 'w-0 opacity-0'}
-          `}
-        >
-          {showAgentPanel && <AgentPanel onClose={() => setShowAgentPanel(false)} />}
-        </div>
+        {/* Bottom Section: Terminal (Slide Up/Down) */}
+        {showTerminal && <TerminalPage onClose={() => setShowTerminal(false)} />}
       </div>
     </div>
   )
