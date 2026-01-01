@@ -36,9 +36,12 @@ interface SidebarSection {
   items: SidebarItem[]
 }
 
-export default function Sidebar() {
-  const [activeItem, setActiveItem] = useState('explorer')
-  
+interface SidebarProps {
+  onItemClick: (itemId: string) => void
+  activeItem: string
+}
+
+export default function Sidebar({ onItemClick, activeItem }: SidebarProps) {
   // Core items - always visible (no collapsing)
   const coreItems = [
     { id: 'explorer', icon: FolderTree, label: 'Explorer' },
@@ -88,163 +91,161 @@ export default function Sidebar() {
     },
   ])
 
-  // ✅ UPDATED: Toggle section without closing others
   const toggleSection = (sectionId: string) => {
     setSections(sections.map(section => 
       section.id === sectionId 
         ? { ...section, expanded: !section.expanded }
-        : section // Keep other sections as they are
+        : section
     ))
   }
 
   return (
-  <div className="w-12 bg-dark-base flex flex-col justify-between shrink-0 border-r border-dark-border overflow-y-auto hover:w-[145px] transition-all duration-200 group">
-    {/* Top Section */}
-    <div className="flex flex-col">
-      {/* Core Items - Always Visible */}
-      {coreItems.map((item) => {
-        const isActive = activeItem === item.id
-        const Icon = item.icon
-        
-        return (
-          <div
-            key={item.id}
-            onClick={() => setActiveItem(item.id)}
-            className={`
-              relative flex items-center gap-2.5 px-2.5 py-2.5 cursor-pointer transition-all
-              ${isActive 
-                ? 'text-white bg-dark-hover' 
-                : 'text-text-secondary hover:bg-white/5 hover:text-white'
-              }
-            `}
-            title={item.label}
-          >
-            {isActive && (
-              <div className="absolute left-0 top-0 bottom-0 w-[2px] bg-primary" />
-            )}
-            <Icon size={20} strokeWidth={1.5} className="flex-shrink-0" />
-            <span className="text-[13px] truncate opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-              {item.label}
-            </span>
-          </div>
-        )
-      })}
-
-      {/* Separator - REDUCED GAP */}
-      <div className="w-8 h-[1px] bg-dark-border mx-auto my-1" />
-
-      {/* Collapsible Sections */}
-      {sections.map((section) => {
-        const SectionIcon = section.icon
-        
-        return (
-          <div key={section.id}>
-            {/* Section Header */}
+    <div className="w-12 bg-dark-base flex flex-col justify-between shrink-0 border-r border-dark-border overflow-y-auto hover:w-[145px] transition-all duration-200 group">
+      {/* Top Section */}
+      <div className="flex flex-col">
+        {/* Core Items - Always Visible */}
+        {coreItems.map((item) => {
+          const isActive = activeItem === item.id
+          const Icon = item.icon
+          
+          return (
             <div
-              onClick={() => toggleSection(section.id)}
+              key={item.id}
+              onClick={() => onItemClick(item.id)}
               className={`
                 relative flex items-center gap-2.5 px-2.5 py-2.5 cursor-pointer transition-all
-                hover:bg-white/5
-                ${section.color}
+                ${isActive 
+                  ? 'text-white bg-dark-hover' 
+                  : 'text-text-secondary hover:bg-white/5 hover:text-white'
+                }
               `}
-              title={section.title}
+              title={item.label}
             >
-              <SectionIcon size={20} strokeWidth={1.5} className="flex-shrink-0" />
-              <div className="flex items-center justify-between flex-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                <span className="text-[13px] font-semibold whitespace-nowrap">
-                  {section.title}
-                </span>
-                {section.expanded ? (
-                  <ChevronDown size={14} />
-                ) : (
-                  <ChevronRight size={14} />
-                )}
-              </div>
+              {isActive && (
+                <div className="absolute left-0 top-0 bottom-0 w-[2px] bg-primary" />
+              )}
+              <Icon size={20} strokeWidth={1.5} className="flex-shrink-0" />
+              <span className="text-[13px] truncate opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                {item.label}
+              </span>
             </div>
+          )
+        })}
 
-            {/* Section Items - Only show when expanded */}
-            {section.expanded && (
-              <div className="flex flex-col bg-dark-surface/50">
-                {section.items.map((item) => {
-                  const isActive = activeItem === item.id
-                  const ItemIcon = item.icon
-                  
-                  return (
-                    <div
-                      key={item.id}
-                      onClick={() => setActiveItem(item.id)}
-                      className={`
-                        relative flex items-center gap-2.5 px-2.5 py-2 pl-5 cursor-pointer transition-all
-                        ${isActive 
-                          ? 'bg-dark-hover text-white' 
-                          : 'text-text-secondary hover:bg-white/5 hover:text-white'
-                        }
-                      `}
-                    >
-                      {isActive && (
-                        <div className="absolute left-0 top-0 bottom-0 w-[2px] bg-primary" />
-                      )}
-                      <ItemIcon 
-                        size={16} 
-                        strokeWidth={1.5} 
-                        className={`flex-shrink-0 ${item.color || ''}`}
-                      />
-                      <span className="text-[12px] truncate opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-                        {item.label}
-                      </span>
-                    </div>
-                  )
-                })}
+        {/* Separator */}
+        <div className="w-8 h-[1px] bg-dark-border mx-auto my-1" />
+
+        {/* Collapsible Sections */}
+        {sections.map((section) => {
+          const SectionIcon = section.icon
+          
+          return (
+            <div key={section.id}>
+              {/* Section Header */}
+              <div
+                onClick={() => toggleSection(section.id)}
+                className={`
+                  relative flex items-center gap-2.5 px-2.5 py-2.5 cursor-pointer transition-all
+                  hover:bg-white/5
+                  ${section.color}
+                `}
+                title={section.title}
+              >
+                <SectionIcon size={20} strokeWidth={1.5} className="flex-shrink-0" />
+                <div className="flex items-center justify-between flex-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <span className="text-[13px] font-semibold whitespace-nowrap">
+                    {section.title}
+                  </span>
+                  {section.expanded ? (
+                    <ChevronDown size={14} />
+                  ) : (
+                    <ChevronRight size={14} />
+                  )}
+                </div>
               </div>
-            )}
-          </div>
-        )
-      })}
-    </div>
 
-    {/* Bottom Icons - Fixed */}
-    <div className="flex flex-col border-t border-dark-border">
-      <div
-        onClick={() => setActiveItem('account')}
-        className={`
-          relative flex items-center gap-2.5 px-2.5 py-2.5 cursor-pointer transition-all
-          ${activeItem === 'account' 
-            ? 'bg-dark-hover text-white' 
-            : 'text-text-secondary hover:bg-white/5 hover:text-white'
-          }
-        `}
-        title="Account"
-      >
-        {activeItem === 'account' && (
-          <div className="absolute left-0 top-0 bottom-0 w-[2px] bg-primary" />
-        )}
-        <User size={20} strokeWidth={1.5} className="flex-shrink-0" />
-        <span className="text-[13px] opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-          Account
-        </span>
+              {/* Section Items */}
+              {section.expanded && (
+                <div className="flex flex-col bg-dark-surface/50">
+                  {section.items.map((item) => {
+                    const isActive = activeItem === item.id
+                    const ItemIcon = item.icon
+                    
+                    return (
+                      <div
+                        key={item.id}
+                        onClick={() => onItemClick(item.id)}
+                        className={`
+                          relative flex items-center gap-2.5 px-2.5 py-2 pl-5 cursor-pointer transition-all
+                          ${isActive 
+                            ? 'bg-dark-hover text-white' 
+                            : 'text-text-secondary hover:bg-white/5 hover:text-white'
+                          }
+                        `}
+                      >
+                        {isActive && (
+                          <div className="absolute left-0 top-0 bottom-0 w-[2px] bg-primary" />
+                        )}
+                        <ItemIcon 
+                          size={16} 
+                          strokeWidth={1.5} 
+                          className={`flex-shrink-0 ${item.color || ''}`}
+                        />
+                        <span className="text-[12px] truncate opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                          {item.label}
+                        </span>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          )
+        })}
       </div>
-      
-      <div
-        onClick={() => setActiveItem('settings')}
-        className={`
-          relative flex items-center gap-2.5 px-2.5 py-2.5 cursor-pointer transition-all
-          ${activeItem === 'settings' 
-            ? 'bg-dark-hover text-white' 
-            : 'text-text-secondary hover:bg-white/5 hover:text-white'
-          }
-        `}
-        title="Settings"
-      >
-        {activeItem === 'settings' && (
-          <div className="absolute left-0 top-0 bottom-0 w-[2px] bg-primary" />
-        )}
-        <Settings size={20} strokeWidth={1.5} className="flex-shrink-0" />
-        <span className="text-[13px] opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-          Settings
-        </span>
+
+      {/* Bottom Icons - Fixed */}
+      <div className="flex flex-col border-t border-dark-border">
+        <div
+          onClick={() => onItemClick('account')}
+          className={`
+            relative flex items-center gap-2.5 px-2.5 py-2.5 cursor-pointer transition-all
+            ${activeItem === 'account' 
+              ? 'bg-dark-hover text-white' 
+              : 'text-text-secondary hover:bg-white/5 hover:text-white'
+            }
+          `}
+          title="Account"
+        >
+          {activeItem === 'account' && (
+            <div className="absolute left-0 top-0 bottom-0 w-[2px] bg-primary" />
+          )}
+          <User size={20} strokeWidth={1.5} className="flex-shrink-0" />
+          <span className="text-[13px] opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+            Account
+          </span>
+        </div>
+        
+        <div
+          onClick={() => onItemClick('settings')}
+          className={`
+            relative flex items-center gap-2.5 px-2.5 py-2.5 cursor-pointer transition-all
+            ${activeItem === 'settings' 
+              ? 'bg-dark-hover text-white' 
+              : 'text-text-secondary hover:bg-white/5 hover:text-white'
+            }
+          `}
+          title="Settings"
+        >
+          {activeItem === 'settings' && (
+            <div className="absolute left-0 top-0 bottom-0 w-[2px] bg-primary" />
+          )}
+          <Settings size={20} strokeWidth={1.5} className="flex-shrink-0" />
+          <span className="text-[13px] opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+            Settings
+          </span>
+        </div>
       </div>
     </div>
-  </div>
-)
-
+  )
 }
