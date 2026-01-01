@@ -100,152 +100,259 @@ export default function Sidebar({ onItemClick, activeItem }: SidebarProps) {
   }
 
   return (
-    <div className="w-12 bg-dark-base flex flex-col justify-between shrink-0 border-r border-dark-border overflow-y-auto hover:w-[145px] transition-all duration-200 group">
-      {/* Top Section */}
-      <div className="flex flex-col">
-        {/* Core Items - Always Visible */}
-        {coreItems.map((item) => {
-          const isActive = activeItem === item.id
-          const Icon = item.icon
-          
-          return (
+  <div className="w-12 bg-dark-base flex flex-col justify-between shrink-0 border-r border-dark-border overflow-y-auto hover:w-[145px] transition-all duration-200 group">
+    {/* Top Section */}
+    <div className="flex flex-col">
+      {/* Core Items - ULTRA BRIGHT */}
+      {coreItems.map((item) => {
+        const isActive = activeItem === item.id
+        const Icon = item.icon
+        
+        return (
+          <div
+            key={item.id}
+            onClick={() => onItemClick(item.id)}
+            className={`
+              relative flex items-center gap-2.5 px-2.5 py-2.5 cursor-pointer transition-all
+              ${isActive 
+                ? 'text-white bg-primary/40 border-r-4 border-primary shadow-[inset_0_0_20px_rgba(0,122,204,0.3)]' 
+                : 'text-text-secondary hover:bg-primary/20 hover:text-primary hover:border-r-2 hover:border-primary/70'
+              }
+            `}
+            title={item.label}
+          >
+            {/* ULTRA BRIGHT Active Indicator */}
+            {isActive && (
+              <>
+                <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-primary shadow-[0_0_20px_rgba(0,122,204,1),0_0_40px_rgba(0,122,204,0.5)]" />
+                <div className="absolute inset-0 bg-gradient-to-r from-primary/20 to-transparent pointer-events-none" />
+              </>
+            )}
+            
+            {/* Hover Indicator */}
+            {!isActive && (
+              <div className="absolute left-0 top-0 bottom-0 w-0 bg-primary shadow-[0_0_15px_rgba(0,122,204,0.8)] group-hover:w-1 transition-all" />
+            )}
+            
+            {/* Icon - ULTRA BRIGHT */}
+            <Icon 
+              size={20} 
+              strokeWidth={isActive ? 3 : 1.5} 
+              className={`flex-shrink-0 transition-all ${
+                isActive 
+                  ? 'text-primary drop-shadow-[0_0_15px_rgba(0,122,204,1)] brightness-125 scale-110' 
+                  : 'group-hover:text-primary group-hover:drop-shadow-[0_0_10px_rgba(0,122,204,0.7)] group-hover:brightness-110 group-hover:scale-105'
+              }`}
+            />
+            <span className={`text-[13px] truncate opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap ${
+              isActive ? 'font-bold text-primary drop-shadow-[0_0_8px_rgba(0,122,204,0.5)]' : 'group-hover:font-semibold group-hover:text-primary'
+            }`}>
+              {item.label}
+            </span>
+          </div>
+        )
+      })}
+
+      {/* Separator */}
+      <div className="w-8 h-[1px] bg-dark-border mx-auto my-1" />
+
+      {/* Collapsible Sections */}
+      {sections.map((section) => {
+        const SectionIcon = section.icon
+        
+        return (
+          <div key={section.id}>
+            {/* Section Header */}
             <div
-              key={item.id}
-              onClick={() => onItemClick(item.id)}
+              onClick={() => toggleSection(section.id)}
               className={`
                 relative flex items-center gap-2.5 px-2.5 py-2.5 cursor-pointer transition-all
-                ${isActive 
-                  ? 'text-white bg-dark-hover' 
-                  : 'text-text-secondary hover:bg-white/5 hover:text-white'
-                }
+                hover:bg-white/10 hover:brightness-110
+                ${section.color}
               `}
-              title={item.label}
+              title={section.title}
             >
-              {isActive && (
-                <div className="absolute left-0 top-0 bottom-0 w-[2px] bg-primary" />
-              )}
-              <Icon size={20} strokeWidth={1.5} className="flex-shrink-0" />
-              <span className="text-[13px] truncate opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-                {item.label}
-              </span>
-            </div>
-          )
-        })}
-
-        {/* Separator */}
-        <div className="w-8 h-[1px] bg-dark-border mx-auto my-1" />
-
-        {/* Collapsible Sections */}
-        {sections.map((section) => {
-          const SectionIcon = section.icon
-          
-          return (
-            <div key={section.id}>
-              {/* Section Header */}
-              <div
-                onClick={() => toggleSection(section.id)}
-                className={`
-                  relative flex items-center gap-2.5 px-2.5 py-2.5 cursor-pointer transition-all
-                  hover:bg-white/5
-                  ${section.color}
-                `}
-                title={section.title}
-              >
-                <SectionIcon size={20} strokeWidth={1.5} className="flex-shrink-0" />
-                <div className="flex items-center justify-between flex-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <span className="text-[13px] font-semibold whitespace-nowrap">
-                    {section.title}
-                  </span>
-                  {section.expanded ? (
-                    <ChevronDown size={14} />
-                  ) : (
-                    <ChevronRight size={14} />
-                  )}
-                </div>
+              <SectionIcon size={20} strokeWidth={1.5} className="flex-shrink-0" />
+              <div className="flex items-center justify-between flex-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <span className="text-[13px] font-semibold whitespace-nowrap">
+                  {section.title}
+                </span>
+                {section.expanded ? (
+                  <ChevronDown size={14} />
+                ) : (
+                  <ChevronRight size={14} />
+                )}
               </div>
-
-              {/* Section Items */}
-              {section.expanded && (
-                <div className="flex flex-col bg-dark-surface/50">
-                  {section.items.map((item) => {
-                    const isActive = activeItem === item.id
-                    const ItemIcon = item.icon
-                    
-                    return (
-                      <div
-                        key={item.id}
-                        onClick={() => onItemClick(item.id)}
-                        className={`
-                          relative flex items-center gap-2.5 px-2.5 py-2 pl-5 cursor-pointer transition-all
-                          ${isActive 
-                            ? 'bg-dark-hover text-white' 
-                            : 'text-text-secondary hover:bg-white/5 hover:text-white'
-                          }
-                        `}
-                      >
-                        {isActive && (
-                          <div className="absolute left-0 top-0 bottom-0 w-[2px] bg-primary" />
-                        )}
-                        <ItemIcon 
-                          size={16} 
-                          strokeWidth={1.5} 
-                          className={`flex-shrink-0 ${item.color || ''}`}
-                        />
-                        <span className="text-[12px] truncate opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-                          {item.label}
-                        </span>
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
             </div>
-          )
-        })}
-      </div>
 
-      {/* Bottom Icons - Fixed */}
-      <div className="flex flex-col border-t border-dark-border">
-        <div
-          onClick={() => onItemClick('account')}
-          className={`
-            relative flex items-center gap-2.5 px-2.5 py-2.5 cursor-pointer transition-all
-            ${activeItem === 'account' 
-              ? 'bg-dark-hover text-white' 
-              : 'text-text-secondary hover:bg-white/5 hover:text-white'
-            }
-          `}
-          title="Account"
-        >
-          {activeItem === 'account' && (
-            <div className="absolute left-0 top-0 bottom-0 w-[2px] bg-primary" />
-          )}
-          <User size={20} strokeWidth={1.5} className="flex-shrink-0" />
-          <span className="text-[13px] opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-            Account
-          </span>
-        </div>
-        
-        <div
-          onClick={() => onItemClick('settings')}
-          className={`
-            relative flex items-center gap-2.5 px-2.5 py-2.5 cursor-pointer transition-all
-            ${activeItem === 'settings' 
-              ? 'bg-dark-hover text-white' 
-              : 'text-text-secondary hover:bg-white/5 hover:text-white'
-            }
-          `}
-          title="Settings"
-        >
-          {activeItem === 'settings' && (
-            <div className="absolute left-0 top-0 bottom-0 w-[2px] bg-primary" />
-          )}
-          <Settings size={20} strokeWidth={1.5} className="flex-shrink-0" />
-          <span className="text-[13px] opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-            Settings
-          </span>
-        </div>
+            {/* Section Items - ULTRA BRIGHT */}
+            {section.expanded && (
+              <div className="flex flex-col bg-dark-surface/50">
+                {section.items.map((item) => {
+                  const isActive = activeItem === item.id
+                  const ItemIcon = item.icon
+                  const colorClass = item.color || 'text-primary'
+                  
+                  // Extract color for shadow
+                  const getColorRgb = (color: string) => {
+                    const colorMap: Record<string, string> = {
+                      'text-purple-400': '168,85,247',
+                      'text-yellow-400': '250,204,21',
+                      'text-blue-400': '96,165,250',
+                      'text-green-400': '74,222,128',
+                      'text-cyan-400': '34,211,238',
+                      'text-orange-400': '251,146,60',
+                      'text-red-400': '248,113,113',
+                      'text-pink-400': '244,114,182',
+                      'text-indigo-400': '129,140,248',
+                      'text-teal-400': '45,212,191',
+                    }
+                    return colorMap[color] || '0,122,204'
+                  }
+                  
+                  const rgb = getColorRgb(colorClass)
+                  
+                  return (
+                    <div
+                      key={item.id}
+                      onClick={() => onItemClick(item.id)}
+                      className={`
+                        group/item relative flex items-center gap-2.5 px-2.5 py-2 pl-5 cursor-pointer transition-all
+                        ${isActive 
+                          ? `bg-white/15 text-white border-r-4 ${colorClass.replace('text-', 'border-')} shadow-[inset_0_0_20px_rgba(${rgb},0.3)]` 
+                          : `text-text-secondary hover:bg-white/10 hover:${colorClass} hover:border-r-2 hover:border-current/70 hover:brightness-110`
+                        }
+                      `}
+                    >
+                      {/* ULTRA BRIGHT Active Indicator */}
+                      {isActive && (
+                        <>
+                          <div 
+                            className={`absolute left-0 top-0 bottom-0 w-1.5 ${colorClass.replace('text-', 'bg-')}`}
+                            style={{ 
+                              boxShadow: `0 0 20px rgba(${rgb},1), 0 0 40px rgba(${rgb},0.5)`
+                            }}
+                          />
+                          <div 
+                            className="absolute inset-0 pointer-events-none"
+                            style={{
+                              background: `linear-gradient(to right, rgba(${rgb},0.2), transparent)`
+                            }}
+                          />
+                        </>
+                      )}
+                      
+                      {/* Hover Indicator */}
+                      {!isActive && (
+                        <div 
+                          className={`absolute left-0 top-0 bottom-0 w-0 ${colorClass.replace('text-', 'bg-')} group-hover/item:w-1 transition-all`}
+                          style={{
+                            boxShadow: `0 0 15px rgba(${rgb},0.8)`
+                          }}
+                        />
+                      )}
+                      
+                      {/* Icon - ULTRA BRIGHT */}
+                      <ItemIcon 
+                        size={16} 
+                        strokeWidth={isActive ? 3 : 1.5}
+                        className={`flex-shrink-0 transition-all ${colorClass} ${
+                          isActive 
+                            ? 'brightness-125 scale-110' 
+                            : 'group-hover/item:brightness-110 group-hover/item:scale-105'
+                        }`}
+                        style={isActive ? {
+                          filter: `drop-shadow(0 0 15px rgba(${rgb},1))`
+                        } : {}}
+                      />
+                      <span className={`text-[12px] truncate opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap ${
+                        isActive ? `font-bold ${colorClass}` : 'group-hover:font-semibold'
+                      }`}
+                      style={isActive ? {
+                        textShadow: `0 0 8px rgba(${rgb},0.5)`
+                      } : {}}
+                      >
+                        {item.label}
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        )
+      })}
+    </div>
+
+    {/* Bottom Icons - ULTRA BRIGHT */}
+    <div className="flex flex-col border-t border-dark-border">
+      <div
+        onClick={() => onItemClick('account')}
+        className={`
+          relative flex items-center gap-2.5 px-2.5 py-2.5 cursor-pointer transition-all
+          ${activeItem === 'account' 
+            ? 'bg-primary/40 text-white border-r-4 border-primary shadow-[inset_0_0_20px_rgba(0,122,204,0.3)]' 
+            : 'text-text-secondary hover:bg-primary/20 hover:text-primary hover:border-r-2 hover:border-primary/70'
+          }
+        `}
+        title="Account"
+      >
+        {activeItem === 'account' && (
+          <>
+            <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-primary shadow-[0_0_20px_rgba(0,122,204,1),0_0_40px_rgba(0,122,204,0.5)]" />
+            <div className="absolute inset-0 bg-gradient-to-r from-primary/20 to-transparent pointer-events-none" />
+          </>
+        )}
+        <User 
+          size={20} 
+          strokeWidth={activeItem === 'account' ? 3 : 1.5}
+          className={`flex-shrink-0 transition-all ${
+            activeItem === 'account' 
+              ? 'text-primary drop-shadow-[0_0_15px_rgba(0,122,204,1)] brightness-125 scale-110' 
+              : 'group-hover:text-primary group-hover:drop-shadow-[0_0_10px_rgba(0,122,204,0.7)] group-hover:brightness-110 group-hover:scale-105'
+          }`}
+        />
+        <span className={`text-[13px] opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap ${
+          activeItem === 'account' ? 'font-bold text-primary drop-shadow-[0_0_8px_rgba(0,122,204,0.5)]' : 'group-hover:font-semibold group-hover:text-primary'
+        }`}>
+          Account
+        </span>
+      </div>
+      
+      <div
+        onClick={() => onItemClick('settings')}
+        className={`
+          relative flex items-center gap-2.5 px-2.5 py-2.5 cursor-pointer transition-all
+          ${activeItem === 'settings' 
+            ? 'bg-primary/40 text-white border-r-4 border-primary shadow-[inset_0_0_20px_rgba(0,122,204,0.3)]' 
+            : 'text-text-secondary hover:bg-primary/20 hover:text-primary hover:border-r-2 hover:border-primary/70'
+          }
+        `}
+        title="Settings"
+      >
+        {activeItem === 'settings' && (
+          <>
+            <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-primary shadow-[0_0_20px_rgba(0,122,204,1),0_0_40px_rgba(0,122,204,0.5)]" />
+            <div className="absolute inset-0 bg-gradient-to-r from-primary/20 to-transparent pointer-events-none" />
+          </>
+        )}
+        <Settings 
+          size={20} 
+          strokeWidth={activeItem === 'settings' ? 3 : 1.5}
+          className={`flex-shrink-0 transition-all ${
+            activeItem === 'settings' 
+              ? 'text-primary drop-shadow-[0_0_15px_rgba(0,122,204,1)] brightness-125 scale-110' 
+              : 'group-hover:text-primary group-hover:drop-shadow-[0_0_10px_rgba(0,122,204,0.7)] group-hover:brightness-110 group-hover:scale-105'
+          }`}
+        />
+        <span className={`text-[13px] opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap ${
+          activeItem === 'settings' ? 'font-bold text-primary drop-shadow-[0_0_8px_rgba(0,122,204,0.5)]' : 'group-hover:font-semibold group-hover:text-primary'
+        }`}>
+          Settings
+        </span>
       </div>
     </div>
-  )
+  </div>
+)
+
 }
