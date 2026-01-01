@@ -145,44 +145,55 @@ export default function MainPage() {
       </div>
 
       {/* Main Content Area */}
-      <div className="flex flex-col flex-1 overflow-hidden">
-        {/* Top Section: Sidebar + Panels + Editor + Agent */}
-        <div className="flex flex-1 overflow-hidden">
-          {/* Left: Sidebar */}
-          <Sidebar 
-            onItemClick={handleSidebarClick}
-            activeItem={showLeftPanel ? activeLeftPanel : ''}
-          />
+<div className="flex flex-1 overflow-hidden relative">  {/* ✅ ADD relative */}
+  {/* Left: Sidebar (Always visible - 48px) */}
+  <Sidebar 
+    onItemClick={handleSidebarClick}
+    activeItem={showLeftPanel ? activeLeftPanel : ''}
+  />
 
-          {/* Left Panel */}
-          <div 
-            className={`
-              transition-all duration-300 ease-in-out overflow-hidden
-              ${showLeftPanel ? 'opacity-100' : 'w-0 opacity-0'}
-            `}
-          >
-            {renderLeftPanel()}
-          </div>
+  {/* Everything else to the right of sidebar */}
+  <div className="flex flex-1 overflow-hidden">  {/* ✅ REMOVE flex-col */}
+    {/* Left Panel */}
+    <div 
+      className={`
+        transition-all duration-300 ease-in-out overflow-hidden
+        ${showLeftPanel ? 'opacity-100' : 'w-0 opacity-0'}
+      `}
+    >
+      {renderLeftPanel()}
+    </div>
 
-          {/* Center: Welcome OR Editor */}
-          <div className="flex-1 flex flex-col min-w-0">
-            {showEditor ? <EditorPage /> : <WelcomePage />}
-          </div>
+    {/* Center: Welcome OR Editor */}
+    <div className="flex-1 flex flex-col min-w-0">
+      {showEditor ? <EditorPage /> : <WelcomePage />}
+    </div>
 
-          {/* Right: Agent Panel */}
-          <div 
-            className={`
-              transition-all duration-300 ease-in-out overflow-hidden
-              ${showAgentPanel ? 'w-[340px] opacity-100' : 'w-0 opacity-0'}
-            `}
-          >
-            {showAgentPanel && <AgentPanel onClose={() => setShowAgentPanel(false)} />}
-          </div>
-        </div>
+    {/* Right: Agent Panel */}
+    <div 
+      className={`
+        transition-all duration-300 ease-in-out overflow-hidden
+        ${showAgentPanel ? 'w-[340px] opacity-100' : 'w-0 opacity-0'}
+      `}
+    >
+      {showAgentPanel && <AgentPanel onClose={() => setShowAgentPanel(false)} />}
+    </div>
+  </div>
 
-        {/* Bottom Section: Terminal (Slide Up/Down) */}
-        {showTerminal && <TerminalPage onClose={() => setShowTerminal(false)} />}
-      </div>
+  {/* Bottom Section: Terminal - ABSOLUTE POSITIONED */}
+  {showTerminal && (
+    <div 
+      className={`absolute bottom-0 left-[48px] right-0 z-50 transition-all duration-300 ${
+        showLeftPanel ? 'left-[298px]' : 'left-[48px]'
+      } ${
+        showAgentPanel ? 'right-[340px]' : 'right-0'
+      }`}
+    >
+      <TerminalPage onClose={() => setShowTerminal(false)} />
+    </div>
+  )}
+</div>
+
     </div>
   )
 }

@@ -16,9 +16,11 @@ interface Problem {
 
 interface TerminalPageProps {
   onClose?: () => void;
+  agentPanelOpen?: boolean;     // ✅ For right side (Agent Panel)
+  sidebarPanelOpen?: boolean;   // ✅ For left side (Sidebar Panels)
 }
 
-export default function TerminalPage({ onClose }: TerminalPageProps) {
+export default function TerminalPage({ onClose, agentPanelOpen, sidebarPanelOpen }: TerminalPageProps) {
   const [activeTab, setActiveTab] = useState<TabType>('terminal');
   const [selectedTerminal, setSelectedTerminal] = useState<TerminalType>('bash');
   const [showTerminalDropdown, setShowTerminalDropdown] = useState(false);
@@ -132,14 +134,14 @@ export default function TerminalPage({ onClose }: TerminalPageProps) {
     };
   }, []);
 
-  // Refit terminal when tab changes
+  // ✅ Refit terminal when tab changes OR panels open/close
   useEffect(() => {
     if (activeTab === 'terminal' && fitAddonRef.current) {
       setTimeout(() => {
         fitAddonRef.current?.fit();
       }, 100);
     }
-  }, [activeTab]);
+  }, [activeTab, agentPanelOpen, sidebarPanelOpen]);  // ✅ Refit on panel changes
 
   const executeCommand = (command: string, terminal: XTerm) => {
     const parts = command.split(' ');
@@ -260,7 +262,13 @@ export default function TerminalPage({ onClose }: TerminalPageProps) {
   };
 
   return (
-    <div className="h-[250px] bg-[#1e1e1e] border-t border-[#2d2d30] flex flex-col">
+    <div 
+      className={`h-[250px] bg-[#1e1e1e] border-t border-[#2d2d30] flex flex-col transition-all duration-300 ${
+        agentPanelOpen ? 'mr-[340px]' : 'mr-0'
+      } ${
+        sidebarPanelOpen ? 'ml-[250px]' : 'ml-0'
+      }`}
+    >
       {/* Header Bar */}
       <div className="flex items-center justify-between h-[35px] bg-[#252526] border-b border-[#2d2d30] shrink-0 overflow-visible">
         {/* Left: Tabs */}
@@ -333,102 +341,102 @@ export default function TerminalPage({ onClose }: TerminalPageProps) {
 
         {/* Right: Actions */}
         <div className="flex items-center gap-1 shrink-0 pr-2">
-  {/* Terminal Type Selector - Only on Terminal tab */}
-  {activeTab === 'terminal' && (
-    <div className="relative" ref={dropdownRef}>
-      <button
-        onClick={() => setShowTerminalDropdown(!showTerminalDropdown)}
-        className="flex items-center gap-0.5 px-1.5 py-1 text-[11px] text-[#cccccc] hover:bg-[#3e3e42] rounded transition-colors"
-      >
-        <span className="font-mono">{getTerminalLabel()}</span>
-        <ChevronDown size={11} />
-      </button>
+          {/* Terminal Type Selector - Only on Terminal tab */}
+          {activeTab === 'terminal' && (
+            <div className="relative" ref={dropdownRef}>
+              <button
+                onClick={() => setShowTerminalDropdown(!showTerminalDropdown)}
+                className="flex items-center gap-0.5 px-1.5 py-1 text-[11px] text-[#cccccc] hover:bg-[#3e3e42] rounded transition-colors"
+              >
+                <span className="font-mono">{getTerminalLabel()}</span>
+                <ChevronDown size={11} />
+              </button>
 
-      {showTerminalDropdown && (
-        <div className="absolute right-0 bottom-full mb-1 bg-[#252526] border border-[#3e3e42] rounded shadow-lg py-1 min-w-[140px] z-50">
+              {showTerminalDropdown && (
+                <div className="absolute right-0 bottom-full mb-1 bg-[#252526] border border-[#3e3e42] rounded shadow-lg py-1 min-w-[140px] z-50">
+                  <button
+                    onClick={() => {
+                      setSelectedTerminal('bash');
+                      setShowTerminalDropdown(false);
+                    }}
+                    className="w-full px-3 py-1.5 text-left text-[11px] text-[#cccccc] hover:bg-[#3e3e42] flex items-center gap-2"
+                  >
+                    <span className={`w-1.5 h-1.5 rounded-full ${selectedTerminal === 'bash' ? 'bg-[#007acc]' : 'bg-transparent'}`} />
+                    bash
+                  </button>
+                  <button
+                    onClick={() => {
+                      setSelectedTerminal('powershell');
+                      setShowTerminalDropdown(false);
+                    }}
+                    className="w-full px-3 py-1.5 text-left text-[11px] text-[#cccccc] hover:bg-[#3e3e42] flex items-center gap-2"
+                  >
+                    <span className={`w-1.5 h-1.5 rounded-full ${selectedTerminal === 'powershell' ? 'bg-[#007acc]' : 'bg-transparent'}`} />
+                    powershell
+                  </button>
+                  <button
+                    onClick={() => {
+                      setSelectedTerminal('cmd');
+                      setShowTerminalDropdown(false);
+                    }}
+                    className="w-full px-3 py-1.5 text-left text-[11px] text-[#cccccc] hover:bg-[#3e3e42] flex items-center gap-2"
+                  >
+                    <span className={`w-1.5 h-1.5 rounded-full ${selectedTerminal === 'cmd' ? 'bg-[#007acc]' : 'bg-transparent'}`} />
+                    cmd
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Add Terminal - Only on Terminal tab */}
+          {activeTab === 'terminal' && (
+            <button
+              className="p-1 text-[#cccccc] hover:bg-[#3e3e42] rounded transition-colors"
+              title="New Terminal"
+            >
+              <Plus size={14} />
+            </button>
+          )}
+
+          {/* Split Terminal - Only on Terminal tab */}
+          {activeTab === 'terminal' && (
+            <button
+              className="p-1 text-[#cccccc] hover:bg-[#3e3e42] rounded transition-colors"
+              title="Split Terminal"
+            >
+              <SquareSplitHorizontal size={14} />
+            </button>
+          )}
+
+          {/* Clear Terminal - Only on Terminal tab */}
+          {activeTab === 'terminal' && (
+            <button
+              onClick={clearTerminal}
+              className="p-1 text-[#cccccc] hover:bg-[#3e3e42] rounded transition-colors"
+              title="Clear"
+            >
+              <Trash2 size={14} />
+            </button>
+          )}
+
+          {/* More Options - ALWAYS VISIBLE */}
           <button
-            onClick={() => {
-              setSelectedTerminal('bash');
-              setShowTerminalDropdown(false);
-            }}
-            className="w-full px-3 py-1.5 text-left text-[11px] text-[#cccccc] hover:bg-[#3e3e42] flex items-center gap-2"
+            className="p-1 text-[#cccccc] hover:bg-[#3e3e42] rounded transition-colors"
+            title="More"
           >
-            <span className={`w-1.5 h-1.5 rounded-full ${selectedTerminal === 'bash' ? 'bg-[#007acc]' : 'bg-transparent'}`} />
-            bash
+            <MoreHorizontal size={14} />
           </button>
+
+          {/* Close Button (X) - ALWAYS VISIBLE */}
           <button
-            onClick={() => {
-              setSelectedTerminal('powershell');
-              setShowTerminalDropdown(false);
-            }}
-            className="w-full px-3 py-1.5 text-left text-[11px] text-[#cccccc] hover:bg-[#3e3e42] flex items-center gap-2"
+            onClick={onClose}
+            className="p-1 text-[#cccccc] hover:bg-[#f44747] hover:text-white rounded transition-colors"
+            title="Close Terminal"
           >
-            <span className={`w-1.5 h-1.5 rounded-full ${selectedTerminal === 'powershell' ? 'bg-[#007acc]' : 'bg-transparent'}`} />
-            powershell
-          </button>
-          <button
-            onClick={() => {
-              setSelectedTerminal('cmd');
-              setShowTerminalDropdown(false);
-            }}
-            className="w-full px-3 py-1.5 text-left text-[11px] text-[#cccccc] hover:bg-[#3e3e42] flex items-center gap-2"
-          >
-            <span className={`w-1.5 h-1.5 rounded-full ${selectedTerminal === 'cmd' ? 'bg-[#007acc]' : 'bg-transparent'}`} />
-            cmd
+            <X size={14} />
           </button>
         </div>
-      )}
-    </div>
-  )}
-
-  {/* Add Terminal - Only on Terminal tab */}
-  {activeTab === 'terminal' && (
-    <button
-      className="p-1 text-[#cccccc] hover:bg-[#3e3e42] rounded transition-colors"
-      title="New Terminal"
-    >
-      <Plus size={14} />
-    </button>
-  )}
-
-  {/* Split Terminal - Only on Terminal tab */}
-  {activeTab === 'terminal' && (
-    <button
-      className="p-1 text-[#cccccc] hover:bg-[#3e3e42] rounded transition-colors"
-      title="Split Terminal"
-    >
-      <SquareSplitHorizontal size={14} />
-    </button>
-  )}
-
-  {/* Clear Terminal - Only on Terminal tab */}
-  {activeTab === 'terminal' && (
-    <button
-      onClick={clearTerminal}
-      className="p-1 text-[#cccccc] hover:bg-[#3e3e42] rounded transition-colors"
-      title="Clear"
-    >
-      <Trash2 size={14} />
-    </button>
-  )}
-
-  {/* More Options - ALWAYS VISIBLE */}
-  <button
-    className="p-1 text-[#cccccc] hover:bg-[#3e3e42] rounded transition-colors"
-    title="More"
-  >
-    <MoreHorizontal size={14} />
-  </button>
-
-  {/* Close Button (X) - ALWAYS VISIBLE - NOT IN CONDITIONAL */}
-  <button
-  onClick={onClose}
-  className="p-1 text-[#cccccc] hover:bg-[#f44747] hover:text-white rounded transition-colors"
-  title="Close Terminal"
->
-  <X size={14} />
-</button>
-</div>
       </div>
 
       {/* Content Area */}

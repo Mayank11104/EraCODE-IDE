@@ -21,7 +21,7 @@ interface Message {
 }
 
 interface AgentPanelProps {
-  onClose: () => void // ✅ NEW: Close handler
+  onClose: () => void 
 }
 
 export default function AgentPanel({ onClose }: AgentPanelProps) {
@@ -63,7 +63,7 @@ export default function AgentPanel({ onClose }: AgentPanelProps) {
   }
 
   return (
-    <div className="w-[340px] h-full bg-dark-surface border-l border-dark-border flex flex-col shrink-0">
+    <div className="w-[340px] h-screen bg-dark-surface border-l border-dark-border flex flex-col shrink-0">
       {/* Header */}
       <div className="h-11 px-4 flex items-center justify-between bg-dark-header border-b border-dark-border">
         <div className="flex items-center gap-2">
