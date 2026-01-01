@@ -20,8 +20,12 @@ interface Message {
   timestamp: Date
 }
 
-export default function AgentPanel() {
-  const [activeTab, setActiveTab] = useState('chat') // chat, workflows, review
+interface AgentPanelProps {
+  onClose: () => void // ✅ NEW: Close handler
+}
+
+export default function AgentPanel({ onClose }: AgentPanelProps) {
+  const [activeTab, setActiveTab] = useState('chat')
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
@@ -76,8 +80,13 @@ export default function AgentPanel() {
           <button className="p-1 hover:bg-white/10 rounded transition-colors">
             <MoreHorizontal size={16} className="text-text-secondary hover:text-white" />
           </button>
-          <button className="p-1 hover:bg-white/10 rounded transition-colors">
-            <X size={16} className="text-text-secondary hover:text-white" />
+          {/* ✅ FIXED: X button now closes the panel */}
+          <button 
+            onClick={onClose}
+            className="p-1 hover:bg-red-500/20 hover:text-red-400 rounded transition-colors"
+            title="Close Agent Panel"
+          >
+            <X size={16} className="text-text-secondary hover:text-red-400" />
           </button>
         </div>
       </div>
