@@ -1,4 +1,4 @@
-import { Zap, MoreHorizontal } from 'lucide-react'
+import { MoreHorizontal } from 'lucide-react'
 
 export default function WorkflowsPanel() {
   return (

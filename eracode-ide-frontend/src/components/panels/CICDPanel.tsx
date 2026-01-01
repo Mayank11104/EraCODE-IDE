@@ -1,4 +1,4 @@
-import { Workflow, MoreHorizontal } from 'lucide-react'
+import { MoreHorizontal } from 'lucide-react'
 
 export default function CICDPanel() {
   return (

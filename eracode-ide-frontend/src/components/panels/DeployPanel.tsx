@@ -1,4 +1,4 @@
-import { Cloud, MoreHorizontal } from 'lucide-react'
+import { MoreHorizontal } from 'lucide-react'
 
 export default function DeployPanel() {
   return (

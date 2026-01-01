@@ -1,4 +1,4 @@
-import { Activity, MoreHorizontal } from 'lucide-react'
+import { MoreHorizontal } from 'lucide-react'
 
 export default function MonitoringPanel() {
   return (

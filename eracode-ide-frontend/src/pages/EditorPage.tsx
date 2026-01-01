@@ -1,6 +1,8 @@
 import { useRef, useEffect } from 'react';
-import Editor, { OnMount, OnChange } from '@monaco-editor/react';
+
 import type { editor } from 'monaco-editor';
+import type { OnMount, OnChange } from '@monaco-editor/react';
+import Editor from '@monaco-editor/react';
 import { X, File, ChevronRight } from 'lucide-react';
 import { useEditorStore } from '../stores/editorStore';
 
