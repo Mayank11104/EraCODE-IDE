@@ -1,14 +1,13 @@
 import { useState } from 'react'
+import { Bot } from 'lucide-react'
 import Sidebar from '../components/Sidebar'
+import AgentPanel from '../components/AgentPanel'
 
-// Import all panels
+// Import LEFT panels only
 import ExplorerPanel from '../components/panels/ExplorerPanel'
 import SearchPanel from '../components/panels/SearchPanel'
 import GitPanel from '../components/panels/GitPanel'
 import DebugPanel from '../components/panels/DebugPanel'
-import AIAgentPanel from '../components/panels/AIAgentPanel'
-import WorkflowsPanel from '../components/panels/WorkflowsPanel'
-import CodeReviewPanel from '../components/panels/CodeReviewPanel'
 import CICDPanel from '../components/panels/CICDPanel'
 import DockerPanel from '../components/panels/DockerPanel'
 import DeployPanel from '../components/panels/DeployPanel'
@@ -18,31 +17,25 @@ import DatabasePanel from '../components/panels/DatabasePanel'
 import VisualizerPanel from '../components/panels/VisualizerPanel'
 
 export default function MainPage() {
-  const [activePanel, setActivePanel] = useState('explorer')
-  const [showPanel, setShowPanel] = useState(true)
+  const [activeLeftPanel, setActiveLeftPanel] = useState('explorer')
+  const [showLeftPanel, setShowLeftPanel] = useState(true)
+  const [showAgentPanel, setShowAgentPanel] = useState(false) // Start closed
 
-  // Handle sidebar icon clicks
   const handleSidebarClick = (panelId: string) => {
-    if (activePanel === panelId) {
-      // Toggle if clicking the same panel
-      setShowPanel(!showPanel)
+    if (activeLeftPanel === panelId) {
+      setShowLeftPanel(!showLeftPanel)
     } else {
-      // Switch to new panel
-      setActivePanel(panelId)
-      setShowPanel(true)
+      setActiveLeftPanel(panelId)
+      setShowLeftPanel(true)
     }
   }
 
-  // Render the active panel
-  const renderPanel = () => {
-    switch (activePanel) {
+  const renderLeftPanel = () => {
+    switch (activeLeftPanel) {
       case 'explorer': return <ExplorerPanel />
       case 'search': return <SearchPanel />
       case 'git': return <GitPanel />
       case 'debug': return <DebugPanel />
-      case 'agent': return <AIAgentPanel />
-      case 'workflows': return <WorkflowsPanel />
-      case 'review': return <CodeReviewPanel />
       case 'cicd': return <CICDPanel />
       case 'docker': return <DockerPanel />
       case 'deploy': return <DeployPanel />
@@ -56,47 +49,98 @@ export default function MainPage() {
 
   return (
     <div className="h-screen w-full flex flex-col bg-dark-surface text-text-primary overflow-hidden">
+      {/* Top Bar with AI Agent Button */}
+      <div className="h-10 bg-dark-header border-b border-dark-border flex items-center justify-between px-4">
+        <div className="flex items-center gap-3">
+          <span className="text-l font-bold text-text-primary">EraCODE IDE</span>
+          
+        </div>
+
+        {/* AI Agent Toggle Button */}
+        <button
+          onClick={() => setShowAgentPanel(!showAgentPanel)}
+          className={`
+            flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all
+            ${showAgentPanel
+              ? 'bg-purple-500/20 border-2 border-purple-400 text-purple-400 shadow-[0_0_15px_rgba(168,85,247,0.5)]'
+              : 'bg-dark-surface border border-dark-border text-text-secondary hover:border-purple-400/50 hover:text-purple-400'
+            }
+          `}
+          title="Toggle AI Agent"
+        >
+          <Bot 
+            size={18} 
+            className={`transition-all ${
+              showAgentPanel 
+                ? 'drop-shadow-[0_0_8px_rgba(168,85,247,1)]' 
+                : ''
+            }`}
+          />
+          <span className="text-xs font-medium">
+            {showAgentPanel ? 'AI Agent Active' : 'Open AI Agent'}
+          </span>
+          <kbd className="px-1.5 py-0.5 bg-dark-base rounded text-[10px]">
+            Ctrl+L
+          </kbd>
+        </button>
+      </div>
+
+      {/* Main Content Area */}
       <div className="flex flex-1 overflow-hidden">
-        {/* Left: Sidebar - Pass activeItem ONLY if panel is open */}
+        {/* Left: Sidebar */}
         <Sidebar 
           onItemClick={handleSidebarClick}
-          activeItem={showPanel ? activePanel : ''} // ✅ KEY CHANGE: Empty when closed
+          activeItem={showLeftPanel ? activeLeftPanel : ''}
         />
 
-        {/* Dynamic Panel (Animated) */}
+        {/* Left Panel (Dynamic) */}
         <div 
           className={`
             transition-all duration-300 ease-in-out overflow-hidden
-            ${showPanel ? 'opacity-100' : 'w-0 opacity-0'}
+            ${showLeftPanel ? 'opacity-100' : 'w-0 opacity-0'}
           `}
         >
-          {renderPanel()}
+          {renderLeftPanel()}
         </div>
 
         {/* Center: Editor Area */}
         <div className="flex-1 flex flex-col min-w-0 transition-all duration-300">
           <div className="flex-1 flex items-center justify-center bg-dark-surface">
             <div className="text-center space-y-4">
-              <h1 className="text-4xl font-bold">📝 EraCode IDE</h1>
-              <p className="text-text-secondary">
-                {showPanel ? `${activePanel} Panel Open` : 'All Panels Closed'}
-              </p>
-              <div className="text-sm text-text-secondary bg-dark-hover p-4 rounded-lg border border-dark-border max-w-md">
-                <p className="mb-2">✅ Sidebar - Ultra Bright</p>
-                <p className="mb-2">✅ 14 Panel Components</p>
-                <p className="mb-2 text-green-400">✅ Smart Highlighting</p>
-                <p className="text-xs mt-3 text-text-secondary">
-                  {showPanel 
-                    ? '💡 Highlight ON (panel open)' 
-                    : '⚫ Highlight OFF (panel closed)'
-                  }
-                </p>
-                <p className="text-xs mt-2 text-text-secondary">
-                  Click the same icon to toggle panel on/off
-                </p>
+              <div className="w-24 h-24 mx-auto mb-4">
+                <svg viewBox="0 0 100 100" className="w-full h-full text-white">
+                  <path d="M50 10 L90 30 L90 70 L50 90 L10 70 L10 30 Z" fill="currentColor" />
+                </svg>
+              </div>
+              <h1 className="text-5xl font-bold text-white">EraCODE IDE</h1>
+              <p className="text-text-secondary text-lg">eracode_ide</p>
+              
+              <div className="mt-8 space-y-2 text-sm">
+                <div className="flex items-center justify-center gap-4 text-text-secondary">
+                  <span>Switch to Agent Manager</span>
+                  <kbd className="px-2 py-1 bg-dark-hover rounded text-xs">Ctrl + E</kbd>
+                </div>
+                <div className="flex items-center justify-center gap-4 text-text-secondary">
+                  <span>Code with Agent</span>
+                  <kbd className="px-2 py-1 bg-dark-hover rounded text-xs">Ctrl + L</kbd>
+                </div>
+                <div className="flex items-center justify-center gap-4 text-text-secondary">
+                  <span>Edit code inline</span>
+                  <kbd className="px-2 py-1 bg-dark-hover rounded text-xs">Ctrl + I</kbd>
+                </div>
               </div>
             </div>
           </div>
+        </div>
+
+        {/* Right: Agent Panel - Slide In/Out */}
+        <div 
+          className={`
+            transition-all duration-300 ease-in-out overflow-hidden
+            ${showAgentPanel ? 'w-[340px] opacity-100' : 'w-0 opacity-0'}
+          `}
+        >
+          <AgentPanel />
         </div>
       </div>
     </div>
