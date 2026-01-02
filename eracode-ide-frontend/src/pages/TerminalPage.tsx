@@ -1,11 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
-import { Terminal as XTerm } from 'xterm';
-import { FitAddon } from '@xterm/addon-fit';
-import { X, ChevronDown, Plus, MoreHorizontal, Trash2, SquareSplitHorizontal } from 'lucide-react';
-import 'xterm/css/xterm.css';
+import { X, ChevronDown, Plus, MoreHorizontal, Trash2, SquareSplitHorizontal, GripHorizontal } from 'lucide-react';
+import WebSocketTerminal from '../components/WebSocketTerminal';
 
 type TabType = 'problems' | 'output' | 'debug' | 'terminal' | 'ports';
-type TerminalType = 'bash' | 'powershell' | 'cmd';
 
 interface Problem {
   file: string;
@@ -16,14 +13,19 @@ interface Problem {
 
 interface TerminalPageProps {
   onClose?: () => void;
-  agentPanelOpen?: boolean;     // ✅ For right side (Agent Panel)
-  sidebarPanelOpen?: boolean;   // ✅ For left side (Sidebar Panels)
+  agentPanelOpen?: boolean;
+  sidebarPanelOpen?: boolean;
 }
 
 export default function TerminalPage({ onClose, agentPanelOpen, sidebarPanelOpen }: TerminalPageProps) {
   const [activeTab, setActiveTab] = useState<TabType>('terminal');
-  const [selectedTerminal, setSelectedTerminal] = useState<TerminalType>('bash');
-  const [showTerminalDropdown, setShowTerminalDropdown] = useState(false);
+  const [terminalHeight, setTerminalHeight] = useState(() => {
+    // Load saved height from localStorage, default to 300px
+    const saved = localStorage.getItem('terminalHeight');
+    return saved ? parseInt(saved) : 300;
+  });
+  const [isResizing, setIsResizing] = useState(false);
+  const resizeRef = useRef<HTMLDivElement>(null);
   
   const [outputLogs, setOutputLogs] = useState<string[]>([
     '23:13:48 [vite] (client) hmr update /src/index.css, /src/pages/TerminalPage.tsx (x2)',
@@ -42,151 +44,56 @@ export default function TerminalPage({ onClose, agentPanelOpen, sidebarPanelOpen
     { file: 'src/pages/TerminalPage.tsx', line: 89, message: 'Unused import "useState"', severity: 'warning' },
   ]);
 
-  const terminalRef = useRef<HTMLDivElement>(null);
-  const xtermRef = useRef<XTerm | null>(null);
-  const fitAddonRef = useRef<FitAddon | null>(null);
-  const dropdownRef = useRef<HTMLDivElement>(null);
-
-  // Close dropdown when clicking outside
+  // ============================================
+  // RESIZING LOGIC
+  // ============================================
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setShowTerminalDropdown(false);
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isResizing) return;
+      
+      // Calculate new height based on mouse position
+      const windowHeight = window.innerHeight;
+      const newHeight = windowHeight - e.clientY;
+      
+      // Set min/max constraints
+      const minHeight = 150; // Minimum 150px
+      const maxHeight = windowHeight - 200; // Leave 200px for editor
+      
+      const constrainedHeight = Math.min(Math.max(newHeight, minHeight), maxHeight);
+      setTerminalHeight(constrainedHeight);
+    };
+
+    const handleMouseUp = () => {
+      if (isResizing) {
+        setIsResizing(false);
+        // Save height to localStorage
+        localStorage.setItem('terminalHeight', terminalHeight.toString());
       }
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  // Initialize xterm.js
-  useEffect(() => {
-    if (!terminalRef.current || xtermRef.current) return;
-
-    const terminal = new XTerm({
-      cursorBlink: true,
-      fontSize: 13,
-      fontFamily: "'Cascadia Code', 'Courier New', monospace",
-      theme: {
-        background: '#1e1e1e',
-        foreground: '#cccccc',
-        cursor: '#ffffff',
-        black: '#000000',
-        red: '#cd3131',
-        green: '#0dbc79',
-        yellow: '#e5e510',
-        blue: '#2472c8',
-        magenta: '#bc3fbc',
-        cyan: '#11a8cd',
-        white: '#e5e5e5',
-      },
-      scrollback: 1000,
-    });
-
-    const fitAddon = new FitAddon();
-    terminal.loadAddon(fitAddon);
-    terminal.open(terminalRef.current);
-    fitAddon.fit();
-
-    // Welcome message
-    terminal.writeln('\x1b[1;32mWelcome to EraCODE IDE\x1b[0m');
-    terminal.writeln('');
-    terminal.write('$ ');
-
-    // Handle user input
-    let currentLine = '';
-    terminal.onData((data) => {
-      const code = data.charCodeAt(0);
-
-      if (code === 13) {
-        // Enter key
-        terminal.writeln('');
-        if (currentLine.trim()) {
-          executeCommand(currentLine.trim(), terminal);
-        }
-        terminal.write('$ ');
-        currentLine = '';
-      } else if (code === 127) {
-        // Backspace
-        if (currentLine.length > 0) {
-          currentLine = currentLine.slice(0, -1);
-          terminal.write('\b \b');
-        }
-      } else if (code >= 32 && code <= 126) {
-        // Printable characters
-        currentLine += data;
-        terminal.write(data);
-      }
-    });
-
-    xtermRef.current = terminal;
-    fitAddonRef.current = fitAddon;
-
-    // Fit on resize
-    const handleResize = () => {
-      fitAddon.fit();
-    };
-    window.addEventListener('resize', handleResize);
+    if (isResizing) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      document.body.style.cursor = 'ns-resize';
+      document.body.style.userSelect = 'none';
+    }
 
     return () => {
-      window.removeEventListener('resize', handleResize);
-      terminal.dispose();
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
     };
-  }, []);
+  }, [isResizing, terminalHeight]);
 
-  // ✅ Refit terminal when tab changes OR panels open/close
-  useEffect(() => {
-    if (activeTab === 'terminal' && fitAddonRef.current) {
-      setTimeout(() => {
-        fitAddonRef.current?.fit();
-      }, 100);
-    }
-  }, [activeTab, agentPanelOpen, sidebarPanelOpen]);  // ✅ Refit on panel changes
-
-  const executeCommand = (command: string, terminal: XTerm) => {
-    const parts = command.split(' ');
-    const cmd = parts[0];
-
-    switch (cmd) {
-      case 'clear':
-        terminal.clear();
-        break;
-      case 'help':
-        terminal.writeln('\x1b[1;36mAvailable commands:\x1b[0m');
-        terminal.writeln('  clear  - Clear terminal');
-        terminal.writeln('  help   - Show this help');
-        terminal.writeln('  echo   - Echo text');
-        terminal.writeln('  date   - Show current date');
-        break;
-      case 'echo':
-        terminal.writeln(parts.slice(1).join(' '));
-        break;
-      case 'date':
-        terminal.writeln(new Date().toString());
-        break;
-      default:
-        terminal.writeln(`\x1b[1;31mCommand not found: ${cmd}\x1b[0m`);
-        terminal.writeln('Type "help" for available commands');
-    }
-  };
-
-  const clearTerminal = () => {
-    xtermRef.current?.clear();
-    xtermRef.current?.write('$ ');
-  };
-
-  const getTerminalLabel = () => {
-    switch (selectedTerminal) {
-      case 'bash': return 'bash';
-      case 'powershell': return 'powershell';
-      case 'cmd': return 'cmd';
-    }
+  const handleResizeStart = () => {
+    setIsResizing(true);
   };
 
   const renderTabContent = () => {
     switch (activeTab) {
       case 'terminal':
-        return <div ref={terminalRef} className="w-full h-full" />;
+        return <WebSocketTerminal />;
 
       case 'output':
         return (
@@ -263,12 +170,30 @@ export default function TerminalPage({ onClose, agentPanelOpen, sidebarPanelOpen
 
   return (
     <div 
-      className={`h-[250px] bg-[#1e1e1e] border-t border-[#2d2d30] flex flex-col transition-all duration-300 ${
-        agentPanelOpen ? 'mr-[340px]' : 'mr-0'
-      } ${
-        sidebarPanelOpen ? 'ml-[250px]' : 'ml-0'
-      }`}
+      className="bg-[#1e1e1e] border-t border-[#2d2d30] flex flex-col w-full relative"
+      style={{ height: `${terminalHeight}px` }}
     >
+      {/* ✅ DRAGGABLE RESIZE HANDLE */}
+      <div
+        ref={resizeRef}
+        onMouseDown={handleResizeStart}
+        className={`absolute top-0 left-0 right-0 h-1 cursor-ns-resize group hover:bg-[#007acc] transition-colors z-50 ${
+          isResizing ? 'bg-[#007acc]' : ''
+        }`}
+        title="Drag to resize"
+      >
+        {/* Visual indicator */}
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2">
+          <div className={`px-3 py-0.5 rounded-full flex items-center gap-1 transition-all ${
+            isResizing 
+              ? 'bg-[#007acc] text-white scale-110' 
+              : 'bg-[#2d2d30] text-[#969696] opacity-0 group-hover:opacity-100'
+          }`}>
+            <GripHorizontal size={12} />
+          </div>
+        </div>
+      </div>
+
       {/* Header Bar */}
       <div className="flex items-center justify-between h-[35px] bg-[#252526] border-b border-[#2d2d30] shrink-0 overflow-visible">
         {/* Left: Tabs */}
@@ -341,86 +266,7 @@ export default function TerminalPage({ onClose, agentPanelOpen, sidebarPanelOpen
 
         {/* Right: Actions */}
         <div className="flex items-center gap-1 shrink-0 pr-2">
-          {/* Terminal Type Selector - Only on Terminal tab */}
-          {activeTab === 'terminal' && (
-            <div className="relative" ref={dropdownRef}>
-              <button
-                onClick={() => setShowTerminalDropdown(!showTerminalDropdown)}
-                className="flex items-center gap-0.5 px-1.5 py-1 text-[11px] text-[#cccccc] hover:bg-[#3e3e42] rounded transition-colors"
-              >
-                <span className="font-mono">{getTerminalLabel()}</span>
-                <ChevronDown size={11} />
-              </button>
-
-              {showTerminalDropdown && (
-                <div className="absolute right-0 bottom-full mb-1 bg-[#252526] border border-[#3e3e42] rounded shadow-lg py-1 min-w-[140px] z-50">
-                  <button
-                    onClick={() => {
-                      setSelectedTerminal('bash');
-                      setShowTerminalDropdown(false);
-                    }}
-                    className="w-full px-3 py-1.5 text-left text-[11px] text-[#cccccc] hover:bg-[#3e3e42] flex items-center gap-2"
-                  >
-                    <span className={`w-1.5 h-1.5 rounded-full ${selectedTerminal === 'bash' ? 'bg-[#007acc]' : 'bg-transparent'}`} />
-                    bash
-                  </button>
-                  <button
-                    onClick={() => {
-                      setSelectedTerminal('powershell');
-                      setShowTerminalDropdown(false);
-                    }}
-                    className="w-full px-3 py-1.5 text-left text-[11px] text-[#cccccc] hover:bg-[#3e3e42] flex items-center gap-2"
-                  >
-                    <span className={`w-1.5 h-1.5 rounded-full ${selectedTerminal === 'powershell' ? 'bg-[#007acc]' : 'bg-transparent'}`} />
-                    powershell
-                  </button>
-                  <button
-                    onClick={() => {
-                      setSelectedTerminal('cmd');
-                      setShowTerminalDropdown(false);
-                    }}
-                    className="w-full px-3 py-1.5 text-left text-[11px] text-[#cccccc] hover:bg-[#3e3e42] flex items-center gap-2"
-                  >
-                    <span className={`w-1.5 h-1.5 rounded-full ${selectedTerminal === 'cmd' ? 'bg-[#007acc]' : 'bg-transparent'}`} />
-                    cmd
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Add Terminal - Only on Terminal tab */}
-          {activeTab === 'terminal' && (
-            <button
-              className="p-1 text-[#cccccc] hover:bg-[#3e3e42] rounded transition-colors"
-              title="New Terminal"
-            >
-              <Plus size={14} />
-            </button>
-          )}
-
-          {/* Split Terminal - Only on Terminal tab */}
-          {activeTab === 'terminal' && (
-            <button
-              className="p-1 text-[#cccccc] hover:bg-[#3e3e42] rounded transition-colors"
-              title="Split Terminal"
-            >
-              <SquareSplitHorizontal size={14} />
-            </button>
-          )}
-
-          {/* Clear Terminal - Only on Terminal tab */}
-          {activeTab === 'terminal' && (
-            <button
-              onClick={clearTerminal}
-              className="p-1 text-[#cccccc] hover:bg-[#3e3e42] rounded transition-colors"
-              title="Clear"
-            >
-              <Trash2 size={14} />
-            </button>
-          )}
-
-          {/* More Options - ALWAYS VISIBLE */}
+          {/* More Options */}
           <button
             className="p-1 text-[#cccccc] hover:bg-[#3e3e42] rounded transition-colors"
             title="More"
@@ -428,7 +274,7 @@ export default function TerminalPage({ onClose, agentPanelOpen, sidebarPanelOpen
             <MoreHorizontal size={14} />
           </button>
 
-          {/* Close Button (X) - ALWAYS VISIBLE */}
+          {/* Close Button */}
           <button
             onClick={onClose}
             className="p-1 text-[#cccccc] hover:bg-[#f44747] hover:text-white rounded transition-colors"
