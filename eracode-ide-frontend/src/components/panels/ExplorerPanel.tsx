@@ -175,13 +175,29 @@ export default function ExplorerPanel() {
   }
 
   const handleOpenFolder = async () => {
-    const root = await openFolder()
-    if (root) {
-      setRootDirectory(root)
-      setExpandedFolders(new Set([root.id]))
-      setSelectedNode(root)
+  const root = await openFolder()
+  if (root) {
+    // ✅ Ask user for the actual path - EMPTY input for manual paste
+    const userPath = prompt(
+      `📁 Folder "${root.name}" opened!\n\n` +
+      `Please paste the full folder path for terminal:\n\n` +
+      `Example: C:\\Users\\asus\\OneDrive\\Desktop\\${root.name}`
+    )
+    
+    // ✅ Store path in root directory
+    if (userPath && userPath.trim()) {
+      root.path = userPath.trim()
+      console.log('✅ Folder path set:', userPath.trim())
+    } else {
+      console.log('⚠️ No path provided')
     }
+    
+    setRootDirectory(root)
+    setExpandedFolders(new Set([root.id]))
+    setSelectedNode(root)
   }
+}
+
 
   const handleRefresh = async () => {
     if (!rootDirectory || !rootDirectory.handle) return

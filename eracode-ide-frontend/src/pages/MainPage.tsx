@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { Bot, Terminal as TerminalIcon } from 'lucide-react'
 import Sidebar from '../components/Sidebar'
 import AgentPanel from '../components/AgentPanel'
-
+import WebSocketTerminal from '../components/WebSocketTerminal'
 
 // Import LEFT panels
 import ExplorerPanel from '../components/panels/ExplorerPanel'
@@ -220,6 +220,7 @@ export default function MainPage() {
               onClose={() => setShowTerminal(false)}
               agentPanelOpen={showAgentPanel}
               sidebarPanelOpen={showLeftPanel}
+              
             />
           </div>
         )}

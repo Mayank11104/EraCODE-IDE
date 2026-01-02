@@ -5,8 +5,7 @@ export interface FileNode {
     name: string
     type: 'file' | 'folder'
     path: string
-    content?: string
-    handle?: FileSystemFileHandle | FileSystemDirectoryHandle
+    handle?: FileSystemHandle
     children?: FileNode[]
 }
 
@@ -16,12 +15,10 @@ interface FileSystemStore {
     contextMenuNode: FileNode | null
     contextMenuPosition: { x: number; y: number } | null
 
-    // Actions
-    setRootDirectory: (root: FileNode) => void
+    setRootDirectory: (root: FileNode | null) => void
     addNode: (parentPath: string, node: FileNode) => void
     deleteNode: (path: string) => void
     renameNode: (path: string, newName: string) => void
-    updateNodeContent: (path: string, content: string) => void
     setSelectedNode: (node: FileNode | null) => void
     setContextMenu: (node: FileNode | null, position: { x: number; y: number } | null) => void
 }
@@ -37,29 +34,69 @@ export const useFileSystemStore = create<FileSystemStore>((set) => ({
     addNode: (parentPath, node) =>
         set((state) => {
             if (!state.rootDirectory) return state
-            const newRoot = addNodeToTree(state.rootDirectory, parentPath, node)
-            return { rootDirectory: newRoot }
+
+            const addToNode = (current: FileNode): FileNode => {
+                if (current.path === parentPath) {
+                    return {
+                        ...current,
+                        children: [...(current.children || []), node].sort((a, b) => {
+                            if (a.type === b.type) return a.name.localeCompare(b.name)
+                            return a.type === 'folder' ? -1 : 1
+                        }),
+                    }
+                }
+                if (current.children) {
+                    return {
+                        ...current,
+                        children: current.children.map(addToNode),
+                    }
+                }
+                return current
+            }
+
+            return { rootDirectory: addToNode(state.rootDirectory) }
         }),
 
     deleteNode: (path) =>
         set((state) => {
             if (!state.rootDirectory) return state
-            const newRoot = deleteNodeFromTree(state.rootDirectory, path)
+
+            const deleteFromNode = (current: FileNode): FileNode | null => {
+                if (current.path === path) return null
+                if (current.children) {
+                    return {
+                        ...current,
+                        children: current.children.map(deleteFromNode).filter((n): n is FileNode => n !== null),
+                    }
+                }
+                return current
+            }
+
+            const newRoot = deleteFromNode(state.rootDirectory)
             return { rootDirectory: newRoot }
         }),
 
     renameNode: (path, newName) =>
         set((state) => {
             if (!state.rootDirectory) return state
-            const newRoot = renameNodeInTree(state.rootDirectory, path, newName)
-            return { rootDirectory: newRoot }
-        }),
 
-    updateNodeContent: (path, content) =>
-        set((state) => {
-            if (!state.rootDirectory) return state
-            const newRoot = updateNodeContentInTree(state.rootDirectory, path, content)
-            return { rootDirectory: newRoot }
+            const renameInNode = (current: FileNode): FileNode => {
+                if (current.path === path) {
+                    const pathParts = path.split('/')
+                    pathParts[pathParts.length - 1] = newName
+                    const newPath = pathParts.join('/')
+                    return { ...current, name: newName, path: newPath, id: newPath }
+                }
+                if (current.children) {
+                    return {
+                        ...current,
+                        children: current.children.map(renameInNode),
+                    }
+                }
+                return current
+            }
+
+            return { rootDirectory: renameInNode(state.rootDirectory) }
         }),
 
     setSelectedNode: (node) => set({ selectedNode: node }),
@@ -67,70 +104,3 @@ export const useFileSystemStore = create<FileSystemStore>((set) => ({
     setContextMenu: (node, position) =>
         set({ contextMenuNode: node, contextMenuPosition: position }),
 }))
-
-// Helper functions
-function addNodeToTree(root: FileNode, parentPath: string, newNode: FileNode): FileNode {
-    if (root.path === parentPath) {
-        return {
-            ...root,
-            children: [...(root.children || []), newNode],
-        }
-    }
-
-    if (root.children) {
-        return {
-            ...root,
-            children: root.children.map((child) => addNodeToTree(child, parentPath, newNode)),
-        }
-    }
-
-    return root
-}
-
-function deleteNodeFromTree(root: FileNode, path: string): FileNode {
-    if (root.children) {
-        return {
-            ...root,
-            children: root.children
-                .filter((child) => child.path !== path)
-                .map((child) => deleteNodeFromTree(child, path)),
-        }
-    }
-    return root
-}
-
-function renameNodeInTree(root: FileNode, path: string, newName: string): FileNode {
-    if (root.path === path) {
-        const pathParts = path.split('/')
-        pathParts[pathParts.length - 1] = newName
-        return {
-            ...root,
-            name: newName,
-            path: pathParts.join('/'),
-        }
-    }
-
-    if (root.children) {
-        return {
-            ...root,
-            children: root.children.map((child) => renameNodeInTree(child, path, newName)),
-        }
-    }
-
-    return root
-}
-
-function updateNodeContentInTree(root: FileNode, path: string, content: string): FileNode {
-    if (root.path === path) {
-        return { ...root, content }
-    }
-
-    if (root.children) {
-        return {
-            ...root,
-            children: root.children.map((child) => updateNodeContentInTree(child, path, content)),
-        }
-    }
-
-    return root
-}
