@@ -17,12 +17,14 @@ import {
   ChevronRight
 } from 'lucide-react'
 
+
 interface SidebarItem {
   id: string
   icon: any
   label: string
   color?: string
 }
+
 
 interface SidebarSection {
   id: string
@@ -33,12 +35,15 @@ interface SidebarSection {
   items: SidebarItem[]
 }
 
+
 interface SidebarProps {
   onItemClick: (itemId: string) => void
   activeItem: string
+  onHoverChange?: (isHovered: boolean) => void  // ✅ NEW
 }
 
-export default function Sidebar({ onItemClick, activeItem }: SidebarProps) {
+
+export default function Sidebar({ onItemClick, activeItem, onHoverChange }: SidebarProps) {
   // Core items - always visible (NO AI)
   const coreItems = [
     { id: 'explorer', icon: FolderTree, label: 'Explorer' },
@@ -46,6 +51,7 @@ export default function Sidebar({ onItemClick, activeItem }: SidebarProps) {
     { id: 'git', icon: GitBranch, label: 'Source Control' },
     { id: 'debug', icon: Bug, label: 'Debug & Run' },
   ]
+
 
   // Collapsible sections
   const [sections, setSections] = useState<SidebarSection[]>([
@@ -76,6 +82,7 @@ export default function Sidebar({ onItemClick, activeItem }: SidebarProps) {
     },
   ])
 
+
   const toggleSection = (sectionId: string) => {
     setSections(sections.map(section => 
       section.id === sectionId 
@@ -84,8 +91,13 @@ export default function Sidebar({ onItemClick, activeItem }: SidebarProps) {
     ))
   }
 
+
   return (
-    <div className="w-12 bg-dark-base flex flex-col justify-between shrink-0 border-r border-dark-border overflow-y-auto hover:w-[145px] transition-all duration-200 group">
+    <div 
+      className="w-12 bg-dark-base flex flex-col justify-between shrink-0 border-r border-dark-border overflow-y-auto hover:w-[145px] transition-all duration-200 group"
+      onMouseEnter={() => onHoverChange?.(true)}   // ✅ NEW
+      onMouseLeave={() => onHoverChange?.(false)}  // ✅ NEW
+    >
       {/* Top Section */}
       <div className="flex flex-col">
         {/* Core Items */}
@@ -133,8 +145,10 @@ export default function Sidebar({ onItemClick, activeItem }: SidebarProps) {
           )
         })}
 
+
         {/* Separator */}
         <div className="w-8 h-[1px] bg-dark-border mx-auto my-1" />
+
 
         {/* Collapsible Sections */}
         {sections.map((section) => {
@@ -163,6 +177,7 @@ export default function Sidebar({ onItemClick, activeItem }: SidebarProps) {
                   )}
                 </div>
               </div>
+
 
               {section.expanded && (
                 <div className="flex flex-col bg-dark-surface/50">
@@ -238,6 +253,7 @@ export default function Sidebar({ onItemClick, activeItem }: SidebarProps) {
           )
         })}
       </div>
+
 
       {/* Bottom Icons */}
       <div className="flex flex-col border-t border-dark-border">

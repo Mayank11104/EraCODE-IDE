@@ -3,6 +3,7 @@ import { Bot, Terminal as TerminalIcon } from 'lucide-react'
 import Sidebar from '../components/Sidebar'
 import AgentPanel from '../components/AgentPanel'
 
+
 // Import LEFT panels
 import ExplorerPanel from '../components/panels/ExplorerPanel'
 import SearchPanel from '../components/panels/SearchPanel'
@@ -16,13 +17,16 @@ import APITesterPanel from '../components/panels/APITesterPanel'
 import DatabasePanel from '../components/panels/DatabasePanel'
 import VisualizerPanel from '../components/panels/VisualizerPanel'
 
+
 // Import CENTER pages
 import WelcomePage from './WelcomePage'
 import EditorPage from './EditorPage'
 import TerminalPage from './TerminalPage'
 
+
 // Import store
 import { useEditorStore } from '../stores/editorStore'
+
 
 export default function MainPage() {
   // Store
@@ -41,12 +45,17 @@ export default function MainPage() {
   // Center page state - starts as welcome, switches to editor once a file is opened
   const [showEditor, setShowEditor] = useState(false)
 
+  // ✅ NEW: Track sidebar hover state
+  const [isSidebarHovered, setIsSidebarHovered] = useState(false)
+
+
   // Auto-switch to Editor when a file is opened (PERMANENT for session)
   useEffect(() => {
     if (openFiles.length > 0 && !showEditor) {
       setShowEditor(true)
     }
   }, [openFiles.length, showEditor])
+
 
   const handleSidebarClick = (panelId: string) => {
     if (activeLeftPanel === panelId) {
@@ -57,9 +66,18 @@ export default function MainPage() {
     }
   }
 
+  // ✅ NEW: Calculate terminal left position dynamically
+  const getTerminalLeftPosition = () => {
+    const sidebarWidth = isSidebarHovered ? 145 : 48
+    const panelWidth = showLeftPanel ? 250 : 0
+    return sidebarWidth + panelWidth
+  }
+
+
   // Render left panel based on active selection
   const renderLeftPanel = () => {
     if (!showLeftPanel) return null
+
 
     switch (activeLeftPanel) {
       case 'explorer': return <ExplorerPanel />
@@ -77,6 +95,7 @@ export default function MainPage() {
     }
   }
 
+
   return (
     <div className="h-screen w-full flex flex-col bg-dark-surface text-text-primary overflow-hidden">
       {/* Top Bar with Terminal & AI Agent Buttons */}
@@ -84,6 +103,7 @@ export default function MainPage() {
         <div className="flex items-center gap-3">
           <h1 className="text-lg font-bold text-text-primary">EraCODE IDE</h1>
         </div>
+
 
         <div className="flex items-center gap-3">
           {/* Terminal Toggle Button */}
@@ -113,6 +133,7 @@ export default function MainPage() {
               Ctrl+`
             </kbd>
           </button>
+
 
           {/* AI Agent Toggle Button */}
           <button
@@ -144,55 +165,66 @@ export default function MainPage() {
         </div>
       </div>
 
+
       {/* Main Content Area */}
-<div className="flex flex-1 overflow-hidden relative">  {/* ✅ ADD relative */}
-  {/* Left: Sidebar (Always visible - 48px) */}
-  <Sidebar 
-    onItemClick={handleSidebarClick}
-    activeItem={showLeftPanel ? activeLeftPanel : ''}
-  />
+      <div className="flex flex-1 overflow-hidden relative">
+        {/* Left: Sidebar (Always visible - 48px) - ✅ Pass hover callback */}
+        <Sidebar 
+          onItemClick={handleSidebarClick}
+          activeItem={showLeftPanel ? activeLeftPanel : ''}
+          onHoverChange={setIsSidebarHovered}
+        />
 
-  {/* Everything else to the right of sidebar */}
-  <div className="flex flex-1 overflow-hidden">  {/* ✅ REMOVE flex-col */}
-    {/* Left Panel */}
-    <div 
-      className={`
-        transition-all duration-300 ease-in-out overflow-hidden
-        ${showLeftPanel ? 'opacity-100' : 'w-0 opacity-0'}
-      `}
-    >
-      {renderLeftPanel()}
-    </div>
 
-    {/* Center: Welcome OR Editor */}
-    <div className="flex-1 flex flex-col min-w-0">
-      {showEditor ? <EditorPage /> : <WelcomePage />}
-    </div>
+        {/* Everything else to the right of sidebar */}
+        <div className="flex flex-1 overflow-hidden">
+          {/* Left Panel */}
+          <div 
+            className={`
+              transition-all duration-300 ease-in-out overflow-hidden
+              ${showLeftPanel ? 'opacity-100' : 'w-0 opacity-0'}
+            `}
+          >
+            {renderLeftPanel()}
+          </div>
 
-    {/* Right: Agent Panel */}
-    <div 
-      className={`
-        transition-all duration-300 ease-in-out overflow-hidden
-        ${showAgentPanel ? 'w-[340px] opacity-100' : 'w-0 opacity-0'}
-      `}
-    >
-      {showAgentPanel && <AgentPanel onClose={() => setShowAgentPanel(false)} />}
-    </div>
-  </div>
 
-  {/* Bottom Section: Terminal - ABSOLUTE POSITIONED */}
-  {showTerminal && (
-    <div 
-      className={`absolute bottom-0 left-[48px] right-0 z-50 transition-all duration-300 ${
-        showLeftPanel ? 'left-[298px]' : 'left-[48px]'
-      } ${
-        showAgentPanel ? 'right-[340px]' : 'right-0'
-      }`}
-    >
-      <TerminalPage onClose={() => setShowTerminal(false)} />
-    </div>
-  )}
-</div>
+          {/* Center: Welcome OR Editor */}
+          <div className="flex-1 flex flex-col min-w-0">
+            {showEditor ? <EditorPage /> : <WelcomePage />}
+          </div>
+
+
+          {/* Right: Agent Panel */}
+          <div 
+            className={`
+              transition-all duration-300 ease-in-out overflow-hidden
+              ${showAgentPanel ? 'w-[340px] opacity-100' : 'w-0 opacity-0'}
+            `}
+          >
+            {showAgentPanel && <AgentPanel onClose={() => setShowAgentPanel(false)} />}
+          </div>
+        </div>
+
+
+        {/* Bottom Section: Terminal - ✅ DYNAMIC POSITIONING */}
+        {showTerminal && (
+          <div 
+            className="absolute bottom-0 right-0 z-50 transition-all duration-200"
+            style={{
+              left: `${getTerminalLeftPosition()}px`,
+              right: showAgentPanel ? '340px' : '0'
+            }}
+          >
+            <TerminalPage 
+              onClose={() => setShowTerminal(false)}
+              agentPanelOpen={showAgentPanel}
+              sidebarPanelOpen={showLeftPanel}
+            />
+          </div>
+        )}
+      </div>
+
 
     </div>
   )

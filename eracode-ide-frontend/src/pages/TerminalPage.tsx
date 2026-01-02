@@ -4,8 +4,10 @@ import { FitAddon } from '@xterm/addon-fit';
 import { X, ChevronDown, Plus, MoreHorizontal, Trash2, SquareSplitHorizontal } from 'lucide-react';
 import 'xterm/css/xterm.css';
 
+
 type TabType = 'problems' | 'output' | 'debug' | 'terminal' | 'ports';
 type TerminalType = 'bash' | 'powershell' | 'cmd';
+
 
 interface Problem {
   file: string;
@@ -14,11 +16,13 @@ interface Problem {
   severity: 'error' | 'warning' | 'info';
 }
 
+
 interface TerminalPageProps {
   onClose?: () => void;
-  agentPanelOpen?: boolean;     // ✅ For right side (Agent Panel)
-  sidebarPanelOpen?: boolean;   // ✅ For left side (Sidebar Panels)
+  agentPanelOpen?: boolean;
+  sidebarPanelOpen?: boolean;
 }
+
 
 export default function TerminalPage({ onClose, agentPanelOpen, sidebarPanelOpen }: TerminalPageProps) {
   const [activeTab, setActiveTab] = useState<TabType>('terminal');
@@ -42,10 +46,12 @@ export default function TerminalPage({ onClose, agentPanelOpen, sidebarPanelOpen
     { file: 'src/pages/TerminalPage.tsx', line: 89, message: 'Unused import "useState"', severity: 'warning' },
   ]);
 
+
   const terminalRef = useRef<HTMLDivElement>(null);
   const xtermRef = useRef<XTerm | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -55,13 +61,16 @@ export default function TerminalPage({ onClose, agentPanelOpen, sidebarPanelOpen
       }
     };
 
+
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+
   // Initialize xterm.js
   useEffect(() => {
     if (!terminalRef.current || xtermRef.current) return;
+
 
     const terminal = new XTerm({
       cursorBlink: true,
@@ -83,20 +92,24 @@ export default function TerminalPage({ onClose, agentPanelOpen, sidebarPanelOpen
       scrollback: 1000,
     });
 
+
     const fitAddon = new FitAddon();
     terminal.loadAddon(fitAddon);
     terminal.open(terminalRef.current);
     fitAddon.fit();
+
 
     // Welcome message
     terminal.writeln('\x1b[1;32mWelcome to EraCODE IDE\x1b[0m');
     terminal.writeln('');
     terminal.write('$ ');
 
+
     // Handle user input
     let currentLine = '';
     terminal.onData((data) => {
       const code = data.charCodeAt(0);
+
 
       if (code === 13) {
         // Enter key
@@ -119,8 +132,10 @@ export default function TerminalPage({ onClose, agentPanelOpen, sidebarPanelOpen
       }
     });
 
+
     xtermRef.current = terminal;
     fitAddonRef.current = fitAddon;
+
 
     // Fit on resize
     const handleResize = () => {
@@ -128,11 +143,13 @@ export default function TerminalPage({ onClose, agentPanelOpen, sidebarPanelOpen
     };
     window.addEventListener('resize', handleResize);
 
+
     return () => {
       window.removeEventListener('resize', handleResize);
       terminal.dispose();
     };
   }, []);
+
 
   // ✅ Refit terminal when tab changes OR panels open/close
   useEffect(() => {
@@ -141,11 +158,13 @@ export default function TerminalPage({ onClose, agentPanelOpen, sidebarPanelOpen
         fitAddonRef.current?.fit();
       }, 100);
     }
-  }, [activeTab, agentPanelOpen, sidebarPanelOpen]);  // ✅ Refit on panel changes
+  }, [activeTab, agentPanelOpen, sidebarPanelOpen]);
+
 
   const executeCommand = (command: string, terminal: XTerm) => {
     const parts = command.split(' ');
     const cmd = parts[0];
+
 
     switch (cmd) {
       case 'clear':
@@ -170,10 +189,12 @@ export default function TerminalPage({ onClose, agentPanelOpen, sidebarPanelOpen
     }
   };
 
+
   const clearTerminal = () => {
     xtermRef.current?.clear();
     xtermRef.current?.write('$ ');
   };
+
 
   const getTerminalLabel = () => {
     switch (selectedTerminal) {
@@ -183,10 +204,12 @@ export default function TerminalPage({ onClose, agentPanelOpen, sidebarPanelOpen
     }
   };
 
+
   const renderTabContent = () => {
     switch (activeTab) {
       case 'terminal':
         return <div ref={terminalRef} className="w-full h-full" />;
+
 
       case 'output':
         return (
@@ -199,6 +222,7 @@ export default function TerminalPage({ onClose, agentPanelOpen, sidebarPanelOpen
           </div>
         );
 
+
       case 'debug':
         return (
           <div className="w-full h-full p-2 overflow-y-auto font-mono text-[13px] text-[#cccccc]">
@@ -209,6 +233,7 @@ export default function TerminalPage({ onClose, agentPanelOpen, sidebarPanelOpen
             ))}
           </div>
         );
+
 
       case 'problems':
         return (
@@ -252,6 +277,7 @@ export default function TerminalPage({ onClose, agentPanelOpen, sidebarPanelOpen
           </div>
         );
 
+
       case 'ports':
         return (
           <div className="w-full h-full flex items-center justify-center text-[#969696] text-sm">
@@ -261,14 +287,9 @@ export default function TerminalPage({ onClose, agentPanelOpen, sidebarPanelOpen
     }
   };
 
+
   return (
-    <div 
-      className={`h-[250px] bg-[#1e1e1e] border-t border-[#2d2d30] flex flex-col transition-all duration-300 ${
-        agentPanelOpen ? 'mr-[340px]' : 'mr-0'
-      } ${
-        sidebarPanelOpen ? 'ml-[250px]' : 'ml-0'
-      }`}
-    >
+    <div className="h-[250px] bg-[#1e1e1e] border-t border-[#2d2d30] flex flex-col w-full">
       {/* Header Bar */}
       <div className="flex items-center justify-between h-[35px] bg-[#252526] border-b border-[#2d2d30] shrink-0 overflow-visible">
         {/* Left: Tabs */}
@@ -290,6 +311,7 @@ export default function TerminalPage({ onClose, agentPanelOpen, sidebarPanelOpen
             </span>
           </button>
 
+
           {/* Output Tab */}
           <button
             onClick={() => setActiveTab('output')}
@@ -301,6 +323,7 @@ export default function TerminalPage({ onClose, agentPanelOpen, sidebarPanelOpen
           >
             Output
           </button>
+
 
           {/* Debug Console Tab */}
           <button
@@ -314,6 +337,7 @@ export default function TerminalPage({ onClose, agentPanelOpen, sidebarPanelOpen
             Debug
           </button>
 
+
           {/* Terminal Tab */}
           <button
             onClick={() => setActiveTab('terminal')}
@@ -325,6 +349,7 @@ export default function TerminalPage({ onClose, agentPanelOpen, sidebarPanelOpen
           >
             Terminal
           </button>
+
 
           {/* Ports Tab */}
           <button
@@ -339,6 +364,7 @@ export default function TerminalPage({ onClose, agentPanelOpen, sidebarPanelOpen
           </button>
         </div>
 
+
         {/* Right: Actions */}
         <div className="flex items-center gap-1 shrink-0 pr-2">
           {/* Terminal Type Selector - Only on Terminal tab */}
@@ -351,6 +377,7 @@ export default function TerminalPage({ onClose, agentPanelOpen, sidebarPanelOpen
                 <span className="font-mono">{getTerminalLabel()}</span>
                 <ChevronDown size={11} />
               </button>
+
 
               {showTerminalDropdown && (
                 <div className="absolute right-0 bottom-full mb-1 bg-[#252526] border border-[#3e3e42] rounded shadow-lg py-1 min-w-[140px] z-50">
@@ -389,6 +416,7 @@ export default function TerminalPage({ onClose, agentPanelOpen, sidebarPanelOpen
             </div>
           )}
 
+
           {/* Add Terminal - Only on Terminal tab */}
           {activeTab === 'terminal' && (
             <button
@@ -399,6 +427,7 @@ export default function TerminalPage({ onClose, agentPanelOpen, sidebarPanelOpen
             </button>
           )}
 
+
           {/* Split Terminal - Only on Terminal tab */}
           {activeTab === 'terminal' && (
             <button
@@ -408,6 +437,7 @@ export default function TerminalPage({ onClose, agentPanelOpen, sidebarPanelOpen
               <SquareSplitHorizontal size={14} />
             </button>
           )}
+
 
           {/* Clear Terminal - Only on Terminal tab */}
           {activeTab === 'terminal' && (
@@ -420,6 +450,7 @@ export default function TerminalPage({ onClose, agentPanelOpen, sidebarPanelOpen
             </button>
           )}
 
+
           {/* More Options - ALWAYS VISIBLE */}
           <button
             className="p-1 text-[#cccccc] hover:bg-[#3e3e42] rounded transition-colors"
@@ -427,6 +458,7 @@ export default function TerminalPage({ onClose, agentPanelOpen, sidebarPanelOpen
           >
             <MoreHorizontal size={14} />
           </button>
+
 
           {/* Close Button (X) - ALWAYS VISIBLE */}
           <button
@@ -438,6 +470,7 @@ export default function TerminalPage({ onClose, agentPanelOpen, sidebarPanelOpen
           </button>
         </div>
       </div>
+
 
       {/* Content Area */}
       <div className="flex-1 overflow-hidden">
