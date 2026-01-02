@@ -1,60 +1,65 @@
-import { create } from 'zustand';
+import { create } from 'zustand'
 
-interface OpenFile {
-    id: string;
-    name: string;
-    path: string;
-    language: string;
-    content: string;
-    isDirty: boolean;
+export interface EditorFile {
+    id: string
+    name: string
+    path: string
+    language: string
+    content: string
+    isDirty?: boolean
+    handle?: FileSystemFileHandle // ✅ ADD THIS
 }
 
 interface EditorStore {
-    openFiles: OpenFile[];
-    activeFileId: string | null;
-    openFile: (file: Omit<OpenFile, 'isDirty'>) => void;
-    closeFile: (id: string) => void;
-    setActiveFile: (id: string) => void;
-    updateFileContent: (id: string, content: string) => void;
+    openFiles: EditorFile[]
+    activeFileId: string | null
+
+    openFile: (file: EditorFile) => void
+    closeFile: (fileId: string) => void
+    setActiveFile: (fileId: string) => void
+    updateFileContent: (fileId: string, content: string) => void
 }
 
 export const useEditorStore = create<EditorStore>((set) => ({
     openFiles: [],
     activeFileId: null,
 
-    openFile: (file) => set((state) => {
-        // Check if file already open
-        const exists = state.openFiles.find(f => f.id === file.id);
+    openFile: (file) =>
+        set((state) => {
+            const exists = state.openFiles.find((f) => f.id === file.id)
+            if (exists) {
+                return { activeFileId: file.id }
+            }
+            return {
+                openFiles: [...state.openFiles, file],
+                activeFileId: file.id,
+            }
+        }),
 
-        if (exists) {
-            // Just switch to it
-            return { activeFileId: file.id };
-        }
+    closeFile: (fileId) =>
+        set((state) => {
+            const newFiles = state.openFiles.filter((f) => f.id !== fileId)
+            const newActiveId =
+                state.activeFileId === fileId
+                    ? newFiles.length > 0
+                        ? newFiles[newFiles.length - 1].id
+                        : null
+                    : state.activeFileId
 
-        // Add new file
-        return {
-            openFiles: [...state.openFiles, { ...file, isDirty: false }],
-            activeFileId: file.id,
-        };
-    }),
+            return {
+                openFiles: newFiles,
+                activeFileId: newActiveId,
+            }
+        }),
 
-    closeFile: (id) => set((state) => {
-        const newFiles = state.openFiles.filter(f => f.id !== id);
-        const newActiveId = state.activeFileId === id
-            ? (newFiles.length > 0 ? newFiles[newFiles.length - 1].id : null)
-            : state.activeFileId;
+    setActiveFile: (fileId) => set({ activeFileId: fileId }),
 
-        return {
-            openFiles: newFiles,
-            activeFileId: newActiveId,
-        };
-    }),
-
-    setActiveFile: (id) => set({ activeFileId: id }),
-
-    updateFileContent: (id, content) => set((state) => ({
-        openFiles: state.openFiles.map(f =>
-            f.id === id ? { ...f, content, isDirty: true } : f
-        ),
-    })),
-}));
+    updateFileContent: (fileId, content) =>
+        set((state) => ({
+            openFiles: state.openFiles.map((file) =>
+                file.id === fileId
+                    ? { ...file, content, isDirty: file.content !== content }
+                    : file
+            ),
+        })),
+}))
