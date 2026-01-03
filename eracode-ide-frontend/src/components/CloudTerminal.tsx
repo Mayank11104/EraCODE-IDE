@@ -4,42 +4,41 @@ import { FitAddon } from '@xterm/addon-fit'
 import { WebLinksAddon } from '@xterm/addon-web-links'
 import { io, Socket } from 'socket.io-client'
 import { Plus, X, Terminal as TerminalIcon, WifiOff, Wifi, Cloud } from 'lucide-react'
-import { useFileSystemStore } from '../stores/fileSystemStore'
 import 'xterm/css/xterm.css'
 
-interface TerminalInstance {
+interface CloudTerminalInstance {
   id: string
   name: string
   xterm: Terminal
   fitAddon: FitAddon
   isActive: boolean
-  type: 'local' | 'cloud'
   cloudInfo?: {
     instanceId: string
     publicIp: string
     region: string
+    instanceType: string
   }
 }
 
 const BACKEND_URL = 'http://localhost:3001'
 
-interface WebSocketTerminalProps {
-  terminalType?: 'local' | 'cloud' | null
-  cloudConfig?: {
+interface CloudTerminalProps {
+  cloudConfig: {
     region: string
   }
 }
 
-export default function WebSocketTerminal({ terminalType, cloudConfig }: WebSocketTerminalProps) {
-  const [terminals, setTerminals] = useState<TerminalInstance[]>([])
+export default function CloudTerminal({ cloudConfig }: CloudTerminalProps) {
+  const [terminals, setTerminals] = useState<CloudTerminalInstance[]>([])
   const [activeTerminalId, setActiveTerminalId] = useState<string | null>(null)
   const [isConnected, setIsConnected] = useState(false)
-  const [cloudStatus, setCloudStatus] = useState<string>('')
+  const [cloudStatus, setCloudStatus] = useState('')
   const socketRef = useRef<Socket | null>(null)
 
   // Initialize Socket.IO connection
   useEffect(() => {
-    console.log('🔌 Connecting to backend:', BACKEND_URL)
+    console.log('☁️ Connecting to cloud terminal backend:', BACKEND_URL)
+    
     const socket = io(BACKEND_URL, {
       transports: ['polling', 'websocket'],
       reconnection: true,
@@ -53,34 +52,18 @@ export default function WebSocketTerminal({ terminalType, cloudConfig }: WebSock
 
     // Connection events
     socket.on('connect', () => {
-      console.log('✅ Connected to terminal server')
+      console.log('✅ Connected to cloud terminal server')
       setIsConnected(true)
     })
 
     socket.on('connect_error', (error) => {
-      console.error('❌ Connection error:', error.message)
+      console.error('❌ Cloud connection error:', error.message)
       setIsConnected(false)
     })
 
     socket.on('disconnect', (reason) => {
-      console.log('❌ Disconnected from server:', reason)
+      console.log('❌ Disconnected from cloud server:', reason)
       setIsConnected(false)
-    })
-
-    // Local terminal events
-    socket.on('terminal:created', (terminalId: string) => {
-      console.log(`✅ Local terminal ${terminalId} created`)
-    })
-
-    socket.on('terminal:exit', (terminalId: string, exitCode: number) => {
-      console.log(`❌ Terminal ${terminalId} exited with code ${exitCode}`)
-      removeTerminalById(terminalId)
-    })
-
-    socket.on('terminal:error', (terminalId: string, error: string) => {
-      console.error(`❌ Terminal ${terminalId} error:`, error)
-      alert(`Terminal Error: ${error}`)
-      removeTerminalById(terminalId)
     })
 
     // Cloud terminal events
@@ -95,13 +78,15 @@ export default function WebSocketTerminal({ terminalType, cloudConfig }: WebSock
       
       // Update terminal with cloud info
       setTerminals(prev => prev.map(t => {
-        if (t.id === info.sessionId && t.type === 'cloud') {
+        if (t.id === info.sessionId) {
           return {
             ...t,
+            name: `☁️ ${info.region} - ${info.publicIp}`,
             cloudInfo: {
               instanceId: info.instanceId,
               publicIp: info.publicIp,
-              region: info.region
+              region: info.region,
+              instanceType: info.instanceType || 't3.micro'
             }
           }
         }
@@ -122,32 +107,23 @@ export default function WebSocketTerminal({ terminalType, cloudConfig }: WebSock
     })
 
     return () => {
-      console.log('🔌 Disconnecting socket')
+      console.log('🔌 Disconnecting cloud socket')
       socket.disconnect()
     }
   }, [])
 
-  // Handle terminal data for both local and cloud
+  // Handle cloud terminal data
   useEffect(() => {
-    const handleLocalData = (terminalId: string, data: string) => {
-      const terminal = terminals.find(t => t.id === terminalId && t.type === 'local')
-      if (terminal) {
-        terminal.xterm.write(data)
-      }
-    }
-
     const handleCloudData = (sessionId: string, data: string) => {
-      const terminal = terminals.find(t => t.id === sessionId && t.type === 'cloud')
+      const terminal = terminals.find(t => t.id === sessionId)
       if (terminal) {
         terminal.xterm.write(data)
       }
     }
 
-    socketRef.current?.on('terminal:data', handleLocalData)
     socketRef.current?.on('cloud-terminal:data', handleCloudData)
-
+    
     return () => {
-      socketRef.current?.off('terminal:data', handleLocalData)
       socketRef.current?.off('cloud-terminal:data', handleCloudData)
     }
   }, [terminals])
@@ -164,20 +140,17 @@ export default function WebSocketTerminal({ terminalType, cloudConfig }: WebSock
     })
   }
 
-  // Create terminal based on type
-  const createTerminal = () => {
+  // Create cloud terminal
+  const createCloudTerminal = () => {
     if (!socketRef.current?.connected) {
       alert('Not connected to backend server!')
       return
     }
 
-    const terminalId = `terminal-${Date.now()}`
+    const terminalId = `cloud-${Date.now()}`
     const terminalNumber = terminals.length + 1
 
-    // Determine type
-    const type = terminalType || 'local'
-    
-    console.log(`📟 Creating ${type} terminal:`, terminalId)
+    console.log(`☁️ Creating cloud terminal:`, terminalId, cloudConfig)
 
     // Create XTerm instance
     const xterm = new Terminal({
@@ -195,13 +168,12 @@ export default function WebSocketTerminal({ terminalType, cloudConfig }: WebSock
     xterm.loadAddon(fitAddon)
     xterm.loadAddon(new WebLinksAddon())
 
-    const newTerminal: TerminalInstance = {
+    const newTerminal: CloudTerminalInstance = {
       id: terminalId,
-      name: type === 'cloud' ? `☁️ Cloud ${terminalNumber}` : `💻 Local ${terminalNumber}`,
+      name: `☁️ Cloud ${terminalNumber}`,
       xterm,
       fitAddon,
       isActive: true,
-      type,
     }
 
     setTerminals(prev => [
@@ -212,58 +184,36 @@ export default function WebSocketTerminal({ terminalType, cloudConfig }: WebSock
 
     // Mount to DOM
     setTimeout(() => {
-      const container = document.getElementById(`term-${terminalId}`)
+      const container = document.getElementById(`cloud-term-${terminalId}`)
       if (container) {
         xterm.open(container)
         fitAddon.fit()
         xterm.focus()
 
+        setCloudStatus('☁️ Launching EC2 instance...')
+
         // Handle user input
-        if (type === 'local') {
-          xterm.onData((data) => {
-            socketRef.current?.emit('terminal:write', terminalId, data)
-          })
-          xterm.onResize(({ cols, rows }) => {
-            socketRef.current?.emit('terminal:resize', terminalId, cols, rows)
-          })
+        xterm.onData((data) => {
+          socketRef.current?.emit('cloud-terminal:write', terminalId, data)
+        })
 
-          // Send creation request
-          const { rootDirectory } = useFileSystemStore.getState()
-          socketRef.current?.emit('terminal:create', terminalId, {
-            cols: 80,
-            rows: 24,
-            shell: 'cmd.exe',
-            cwd: rootDirectory?.path
-          })
-        } else if (type === 'cloud') {
-          setCloudStatus('Launching cloud terminal...')
-          
-          xterm.onData((data) => {
-            socketRef.current?.emit('cloud-terminal:write', terminalId, data)
-          })
-          xterm.onResize(({ cols, rows }) => {
-            socketRef.current?.emit('cloud-terminal:resize', terminalId, cols, rows)
-          })
+        xterm.onResize(({ cols, rows }) => {
+          socketRef.current?.emit('cloud-terminal:resize', terminalId, cols, rows)
+        })
 
-          // Send cloud creation request
-          socketRef.current?.emit('cloud-terminal:create', terminalId, cloudConfig)
-        }
+        // Send cloud creation request
+        socketRef.current?.emit('cloud-terminal:create', terminalId, cloudConfig)
       }
     }, 100)
   }
 
-  // Remove terminal
-  const removeTerminal = (id: string, e: React.MouseEvent) => {
+  // Remove cloud terminal
+  const removeCloudTerminal = (id: string, e: React.MouseEvent) => {
     e.stopPropagation()
     const terminal = terminals.find(t => t.id === id)
     if (terminal) {
       terminal.xterm.dispose()
-      
-      if (terminal.type === 'local') {
-        socketRef.current?.emit('terminal:kill', id)
-      } else if (terminal.type === 'cloud') {
-        socketRef.current?.emit('cloud-terminal:close', id)
-      }
+      socketRef.current?.emit('cloud-terminal:close', id)
     }
     removeTerminalById(id)
   }
@@ -272,6 +222,7 @@ export default function WebSocketTerminal({ terminalType, cloudConfig }: WebSock
   const switchTerminal = (id: string) => {
     setActiveTerminalId(id)
     setTerminals(prev => prev.map(t => ({ ...t, isActive: t.id === id })))
+    
     const terminal = terminals.find(t => t.id === id)
     if (terminal) {
       setTimeout(() => {
@@ -290,16 +241,17 @@ export default function WebSocketTerminal({ terminalType, cloudConfig }: WebSock
         }
       })
     }
+
     window.addEventListener('resize', handleResize)
     return () => window.removeEventListener('resize', handleResize)
   }, [terminals])
 
   return (
-    <div className="h-full flex flex-col bg-[#1e1e1e]">
-      {/* Header */}
-      <div className="flex items-center justify-between px-3 py-2 bg-[#252526] border-b border-[#2d2d30]">
-        {/* Terminal Tabs */}
-        <div className="flex items-center gap-1">
+    <div className="h-full bg-[#1e1e1e] flex flex-col">
+      {/* Header - Exact same style as local terminal */}
+      <div className="h-9 bg-[#252526] border-b border-[#2d2d30] flex items-center justify-between px-2">
+        {/* Left: Terminal Tabs */}
+        <div className="flex items-center gap-1 flex-1 overflow-x-auto">
           {terminals.map(terminal => (
             <div
               key={terminal.id}
@@ -308,40 +260,46 @@ export default function WebSocketTerminal({ terminalType, cloudConfig }: WebSock
                 terminal.isActive ? 'bg-[#1e1e1e] text-white' : 'text-[#969696] hover:bg-[#2d2d30]'
               }`}
             >
-              {terminal.name}
+              <Cloud size={14} />
+              <span className="text-xs whitespace-nowrap">{terminal.name}</span>
               <X
                 size={14}
-                onClick={(e) => removeTerminal(terminal.id, e)}
+                onClick={(e) => removeCloudTerminal(terminal.id, e)}
                 className="opacity-0 group-hover:opacity-100 hover:text-red-400"
               />
             </div>
           ))}
-          
+
           {/* Add Button */}
           <button
-            onClick={createTerminal}
-            disabled={!isConnected}
-            className="p-1 text-[#969696] hover:text-white hover:bg-[#2d2d30] rounded disabled:opacity-50"
-            title={terminalType === 'cloud' ? 'Launch Cloud Terminal' : 'Open Local Terminal'}
+            onClick={createCloudTerminal}
+            className="p-1 hover:bg-[#2d2d30] rounded text-[#969696] hover:text-white"
+            title="Launch new cloud terminal"
           >
             <Plus size={16} />
           </button>
         </div>
 
-        {/* Status */}
-        <div className="flex items-center gap-2 text-xs">
+        {/* Right: Status */}
+        <div className="flex items-center gap-2">
           {cloudStatus && (
-            <span className="text-yellow-400">{cloudStatus}</span>
+            <div className="flex items-center gap-2 text-xs text-yellow-400">
+              <div className="animate-pulse">
+                <Cloud size={14} />
+              </div>
+              <span>{cloudStatus}</span>
+            </div>
           )}
+          
           {isConnected ? (
-            <div className="flex items-center gap-1 text-green-400">
+            <div className="flex items-center gap-1 text-xs text-green-400">
               <Wifi size={12} />
-              Connected
+              <span>Connected</span>
             </div>
           ) : (
-            <div className="flex items-center gap-1 text-red-400">
+            <div className="flex items-center gap-1 text-xs text-red-400">
               <WifiOff size={12} />
-              Reconnecting...
+              <span>Reconnecting...</span>
             </div>
           )}
         </div>
@@ -352,27 +310,23 @@ export default function WebSocketTerminal({ terminalType, cloudConfig }: WebSock
         {terminals.map(terminal => (
           <div
             key={terminal.id}
-            id={`term-${terminal.id}`}
-            className={`absolute inset-0 ${terminal.isActive ? 'block' : 'hidden'}`}
+            id={`cloud-term-${terminal.id}`}
+            className={`absolute inset-0 ${terminal.isActive ? '' : 'hidden'}`}
           />
         ))}
 
-        {/* Empty State */}
+        {/* Empty State - Same style as local */}
         {terminals.length === 0 && (
-          <div className="h-full flex flex-col items-center justify-center text-[#969696]">
-            <TerminalIcon size={48} className="mb-4 opacity-50" />
-            <p className="text-sm mb-2">No terminal open</p>
-            <p className="text-xs mb-4">
-              {terminalType === 'cloud' 
-                ? 'Click + to launch a cloud terminal in AWS' 
-                : 'Click + to open a local terminal'}
-            </p>
+          <div className="flex flex-col items-center justify-center h-full text-[#969696]">
+            <Cloud size={48} className="mb-4 opacity-50" />
+            <h3 className="text-lg font-semibold mb-2">No Cloud Terminal Running</h3>
+            <p className="text-sm mb-4">Click + to launch AWS EC2 terminal in {cloudConfig.region}</p>
             <button
-              onClick={createTerminal}
-              disabled={!isConnected}
-              className="px-4 py-2 bg-[#007acc] text-white rounded hover:bg-[#005a9e] disabled:opacity-50 text-sm"
+              onClick={createCloudTerminal}
+              className="flex items-center gap-2 px-4 py-2 bg-[#0e639c] text-white rounded hover:bg-[#1177bb] transition-colors"
             >
-              {terminalType === 'cloud' ? '☁️ Launch Cloud Terminal' : '💻 Open Local Terminal'}
+              <Cloud size={16} />
+              Launch Cloud Terminal
             </button>
           </div>
         )}
