@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { Monitor, Cloud, X, Zap, AlertCircle, CheckCircle, MapPin } from 'lucide-react';
-import type { 
+// ✅ FIX: Remove 'type' keyword and import actual values
+import { 
   TerminalType, 
   CloudTerminalConfig, 
   CLOUD_INSTANCE, 
   AWS_REGIONS,
-  DEFAULT_AWS_REGION  // ADD THIS
+  DEFAULT_AWS_REGION
 } from '../types/terminal.types';
 
 interface TerminalTypeSelectorProps {
@@ -15,7 +16,7 @@ interface TerminalTypeSelectorProps {
 
 export default function TerminalTypeSelector({ onSelect, onCancel }: TerminalTypeSelectorProps) {
   const [selectedType, setSelectedType] = useState<'local' | 'cloud' | null>(null);
-  const [cloudRegion, setCloudRegion] = useState(DEFAULT_AWS_REGION);  // CHANGED: Use Ireland as default
+  const [cloudRegion, setCloudRegion] = useState(DEFAULT_AWS_REGION);
 
   const handleLocalSelect = () => {
     onSelect('local');
