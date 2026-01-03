@@ -3,7 +3,7 @@ import { Terminal } from 'xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import { WebLinksAddon } from '@xterm/addon-web-links'
 import { io, Socket } from 'socket.io-client'
-import { Plus, X, Terminal as TerminalIcon, WifiOff, Wifi, ChevronDown } from 'lucide-react'
+import { Plus, X, Terminal as TerminalIcon, WifiOff, Wifi } from 'lucide-react'
 import { useFileSystemStore } from '../stores/fileSystemStore'
 import 'xterm/css/xterm.css'
 
@@ -13,73 +13,15 @@ interface TerminalInstance {
   xterm: Terminal
   fitAddon: FitAddon
   isActive: boolean
-  shellType: string
-}
-
-type ShellType = 'powershell' | 'cmd' | 'bash' | 'git-bash'
-
-interface ShellOption {
-  id: ShellType
-  name: string
-  icon: string
-  shell: string
-  args?: string[]
 }
 
 const BACKEND_URL = 'http://localhost:3001'
-
-// Available shell types
-const SHELL_OPTIONS: ShellOption[] = [
-  {
-    id: 'powershell',
-    name: 'PowerShell',
-    icon: '💙',
-    shell: 'powershell.exe',
-    args: []
-  },
-  {
-    id: 'cmd',
-    name: 'Command Prompt',
-    icon: '⚫',
-    shell: 'cmd.exe',
-    args: []
-  },
-  {
-    id: 'bash',
-    name: 'Bash',
-    icon: '🐧',
-    shell: 'bash.exe',
-    args: []
-  },
-  {
-    id: 'git-bash',
-    name: 'Git Bash',
-    icon: '🦊',
-    shell: 'C:\\Program Files\\Git\\bin\\bash.exe',
-    args: []
-  }
-]
 
 export default function WebSocketTerminal() {
   const [terminals, setTerminals] = useState<TerminalInstance[]>([])
   const [activeTerminalId, setActiveTerminalId] = useState<string | null>(null)
   const [isConnected, setIsConnected] = useState(false)
-  const [selectedShell, setSelectedShell] = useState<ShellType>('cmd')
-  const [showShellDropdown, setShowShellDropdown] = useState(false)
   const socketRef = useRef<Socket | null>(null)
-  const dropdownRef = useRef<HTMLDivElement>(null)
-
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setShowShellDropdown(false)
-      }
-    }
-
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [])
 
   // Initialize Socket.IO connection
   useEffect(() => {
@@ -164,25 +106,18 @@ export default function WebSocketTerminal() {
     }
   }, [terminals])
 
-  // Create new terminal with specific shell type
-  const createTerminal = (shellType?: ShellType) => {
+  // Create new CMD terminal
+  const createTerminal = () => {
     if (!socketRef.current?.connected) {
       alert('Not connected to backend server! Please wait for connection...')
       return
     }
 
-    const shell = shellType || selectedShell
-    const shellOption = SHELL_OPTIONS.find(opt => opt.id === shell)
-    
-    if (!shellOption) {
-      alert('Invalid shell type!')
-      return
-    }
-
     const terminalId = `terminal-${Date.now()}`
-    console.log('📟 Creating terminal:', terminalId, 'Shell:', shellOption.name)
+    const terminalNumber = terminals.length + 1
+    console.log('📟 Creating CMD terminal:', terminalId)
 
-    // ✅ GET FOLDER PATH FROM FILE SYSTEM STORE
+    // Get folder path from file system store
     const { rootDirectory } = useFileSystemStore.getState()
     let workingDir: string | undefined = undefined
     
@@ -238,11 +173,10 @@ export default function WebSocketTerminal() {
 
     const newTerminal: TerminalInstance = {
       id: terminalId,
-      name: `${shellOption.icon} ${shellOption.name}`,
+      name: `Terminal ${terminalNumber}`,
       xterm,
       fitAddon,
       isActive: true,
-      shellType: shell
     }
 
     setTerminals(prev => [
@@ -251,19 +185,19 @@ export default function WebSocketTerminal() {
     ])
     setActiveTerminalId(terminalId)
 
-    // ✅ SEND WORKING DIRECTORY TO BACKEND
+    // Send terminal creation request to backend (always CMD)
     console.log('🚀 Sending to backend:', {
       terminalId,
       cwd: workingDir,
-      shell: shellOption.shell
+      shell: 'cmd.exe'
     })
 
     socketRef.current?.emit('terminal:create', terminalId, {
       cols: 80,
       rows: 24,
-      shell: shellOption.shell,
-      shellArgs: shellOption.args || [],
-      cwd: workingDir  // ← CRITICAL: This sends the directory path!
+      shell: 'cmd.exe',
+      shellArgs: [],
+      cwd: workingDir
     })
 
     // Mount to DOM
@@ -326,9 +260,9 @@ export default function WebSocketTerminal() {
 
   return (
     <div className="h-full flex flex-col bg-dark-base">
-      {/* Header with connection status */}
-      <div className="h-9 flex items-center justify-between bg-dark-surface border-b border-dark-border px-2 z-10 relative">
-        {/* Tabs */}
+      {/* Header with tabs and connection status */}
+      <div className="h-9 flex items-center justify-between bg-dark-surface border-b border-dark-border px-2">
+        {/* Terminal Tabs + Add Button */}
         <div className="flex items-center gap-1 overflow-x-auto">
           {terminals.map(terminal => (
             <div
@@ -351,58 +285,18 @@ export default function WebSocketTerminal() {
             </div>
           ))}
 
-          {/* Shell Type Dropdown + Add Button */}
-          <div className="flex items-center gap-1">
-            {/* Shell Selector Dropdown */}
-            <div className="relative" ref={dropdownRef}>
-              <button
-                onClick={() => setShowShellDropdown(!showShellDropdown)}
-                disabled={!isConnected}
-                className="flex items-center gap-1 px-2 py-1 text-text-secondary hover:text-text-primary hover:bg-dark-hover rounded disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                title="Select Terminal Type"
-              >
-                <span className="text-sm">
-                  {SHELL_OPTIONS.find(s => s.id === selectedShell)?.icon}
-                </span>
-                <ChevronDown size={14} />
-              </button>
-
-              {/* Dropdown Menu */}
-              {showShellDropdown && (
-                <div className="absolute bottom-full left-0 mb-1 bg-dark-surface border border-dark-border rounded shadow-lg py-1 min-w-[180px] z-50">
-                  {SHELL_OPTIONS.map((shellOption) => (
-                    <button
-                      key={shellOption.id}
-                      onClick={() => {
-                        setSelectedShell(shellOption.id)
-                        setShowShellDropdown(false)
-                      }}
-                      className="w-full px-3 py-2 text-left text-sm text-text-primary hover:bg-dark-hover flex items-center gap-2 transition-colors"
-                    >
-                      <span className="text-base">{shellOption.icon}</span>
-                      <span className="flex-1">{shellOption.name}</span>
-                      {selectedShell === shellOption.id && (
-                        <span className="text-primary">✓</span>
-                      )}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Add Terminal Button */}
-            <button
-              onClick={() => createTerminal()}
-              disabled={!isConnected}
-              className="flex items-center gap-1 px-2 py-1 text-text-secondary hover:text-text-primary hover:bg-dark-hover rounded disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-              title={isConnected ? `New ${SHELL_OPTIONS.find(s => s.id === selectedShell)?.name} Terminal` : 'Not connected to backend'}
-            >
-              <Plus size={16} />
-            </button>
-          </div>
+          {/* Add Terminal Button */}
+          <button
+            onClick={createTerminal}
+            disabled={!isConnected}
+            className="flex items-center gap-1 px-2 py-1 text-text-secondary hover:text-text-primary hover:bg-dark-hover rounded disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+            title={isConnected ? 'New CMD Terminal' : 'Not connected to backend'}
+          >
+            <Plus size={16} />
+          </button>
         </div>
 
-        {/* Connection status */}
+        {/* Connection Status */}
         <div className="flex items-center gap-2 px-2">
           {isConnected ? (
             <div className="flex items-center gap-1 text-green-400 text-[11px]">
@@ -418,7 +312,7 @@ export default function WebSocketTerminal() {
         </div>
       </div>
 
-      {/* ✅ FIXED: Terminal containers */}
+      {/* Terminal Containers */}
       <div className="flex-1 relative overflow-hidden">
         {terminals.map(terminal => (
           <div
@@ -428,21 +322,21 @@ export default function WebSocketTerminal() {
           />
         ))}
 
-        {/* Empty state */}
+        {/* Empty State */}
         {terminals.length === 0 && (
           <div className="flex items-center justify-center h-full text-text-secondary">
             <div className="text-center">
               <TerminalIcon size={48} className="mx-auto mb-4 opacity-50" />
               <p className="text-sm mb-2">No terminal open</p>
               <p className="text-xs text-text-secondary mb-4">
-                {isConnected ? 'Select a terminal type and click + to start' : 'Waiting for backend connection...'}
+                {isConnected ? 'Click + to open a new CMD terminal' : 'Waiting for backend connection...'}
               </p>
               <button
-                onClick={() => createTerminal()}
+                onClick={createTerminal}
                 disabled={!isConnected}
                 className="px-4 py-2 bg-primary text-white rounded hover:bg-primary/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
-                {isConnected ? `Open ${SHELL_OPTIONS.find(s => s.id === selectedShell)?.name}` : 'Connecting...'}
+                {isConnected ? 'Open CMD Terminal' : 'Connecting...'}
               </button>
             </div>
           </div>
