@@ -236,18 +236,29 @@ export default function WebSocketTerminal({ terminalType, cloudConfig }: WebSock
             cwd: rootDirectory?.path
           })
         } else if (type === 'cloud') {
-          setCloudStatus('Launching cloud terminal...')
-          
-          xterm.onData((data) => {
-            socketRef.current?.emit('cloud-terminal:write', terminalId, data)
-          })
-          xterm.onResize(({ cols, rows }) => {
-            socketRef.current?.emit('cloud-terminal:resize', terminalId, cols, rows)
-          })
-
-          // Send cloud creation request
-          socketRef.current?.emit('cloud-terminal:create', terminalId, cloudConfig)
-        }
+  setCloudStatus('Launching cloud terminal...')
+  xterm.onData((data) => {
+    socketRef.current?.emit('cloud-terminal:write', terminalId, data)
+  })
+  xterm.onResize(({ cols, rows }) => {
+    socketRef.current?.emit('cloud-terminal:resize', terminalId, cols, rows)
+  })
+  
+  // Get project info from fileSystemStore
+  const { rootDirectory } = useFileSystemStore.getState()
+  
+  // Send cloud creation request WITH PROJECT INFO
+  socketRef.current?.emit('cloud-terminal:create', terminalId, {
+    ...cloudConfig,  // ✅ Keeps region
+    localProjectPath: rootDirectory?.path,  // ✅ NEW: e.g., "C:\Users\asus\Desktop\myproject"
+    projectName: rootDirectory?.name        // ✅ NEW: e.g., "myproject"
+  })
+  
+  console.log('☁️ Launching cloud terminal with project:', {
+    path: rootDirectory?.path,
+    name: rootDirectory?.name
+  })
+}
       }
     }, 100)
   }
