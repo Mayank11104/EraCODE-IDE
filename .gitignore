@@ -11,6 +11,7 @@ yarn-error.log*
 .env
 .env.local
 .env.production
+eracode-ide-backend\.env
 
 # OS files
 .DS_Store
