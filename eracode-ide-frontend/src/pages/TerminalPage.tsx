@@ -18,10 +18,18 @@ interface TerminalPageProps {
   onClose?: () => void;
   agentPanelOpen?: boolean;
   sidebarPanelOpen?: boolean;
+  terminalType?: 'local' | 'cloud' | null;  // ✅ ADD THIS
+  cloudConfig?: { region: string };          // ✅ ADD THIS
 }
 
 
-export default function TerminalPage({ onClose, agentPanelOpen, sidebarPanelOpen }: TerminalPageProps) {
+export default function TerminalPage({ 
+  onClose, 
+  agentPanelOpen, 
+  sidebarPanelOpen,
+  terminalType,    // ✅ ADD THIS
+  cloudConfig      // ✅ ADD THIS
+}: TerminalPageProps) {
   const [activeTab, setActiveTab] = useState<TabType>('terminal');
   const [terminalHeight, setTerminalHeight] = useState(() => {
     // Load saved height from localStorage, default to 300px
@@ -229,7 +237,10 @@ export default function TerminalPage({ onClose, agentPanelOpen, sidebarPanelOpen
       <div className="flex-1 overflow-hidden relative">
         {/* Terminal Panel - ALWAYS MOUNTED */}
         <div className={`absolute inset-0 ${activeTab === 'terminal' ? 'block' : 'hidden'}`}>
-          <WebSocketTerminal />
+          <WebSocketTerminal 
+  terminalType={terminalType}
+  cloudConfig={cloudConfig}
+/>
         </div>
 
         {/* Output Panel */}

@@ -1,3 +1,5 @@
+require('dotenv').config(); // ✅ ADD THIS AS FIRST LINE
+
 // ============================================
 // ERACODE IDE BACKEND SERVER
 // ============================================
@@ -8,12 +10,15 @@ const config = require('./config/config')
 const logger = require('./utils/logger')
 const initializeTerminalSocket = require('./sockets/terminal.socket')
 
+
 // ========================================
 // INITIALIZE EXPRESS & SOCKET.IO
 // ========================================
 
+
 const app = express()
 const server = http.createServer(app)
+
 
 // Initialize Socket.IO with CORS
 const io = new Server(server, {
@@ -27,13 +32,16 @@ const io = new Server(server, {
   transports: ['websocket', 'polling'],
 })
 
+
 // ========================================
 // MIDDLEWARE
 // ========================================
 
+
 // Parse JSON bodies
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
+
 
 // CORS for REST API
 app.use((req, res, next) => {
@@ -48,15 +56,18 @@ app.use((req, res, next) => {
   next()
 })
 
+
 // Request logging
 app.use((req, res, next) => {
   logger.info(`${req.method} ${req.path}`)
   next()
 })
 
+
 // ========================================
 // ROUTES
 // ========================================
+
 
 // ✅ UNUSED ROUTES - Kept for future reference
 // Uncomment these when you need backend file system access:
@@ -65,6 +76,7 @@ app.use((req, res, next) => {
 // const fileSystemRoutes = require('./routes/filesystem.routes')
 // app.use('/api/system', systemRoutes)
 // app.use('/api/fs', fileSystemRoutes)
+
 
 // Root endpoint
 app.get('/', (req, res) => {
@@ -80,6 +92,7 @@ app.get('/', (req, res) => {
   })
 })
 
+
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({
@@ -90,6 +103,7 @@ app.get('/api/health', (req, res) => {
     platform: process.platform
   })
 })
+
 
 // Terminals endpoint
 app.get('/api/terminals', (req, res) => {
@@ -103,6 +117,7 @@ app.get('/api/terminals', (req, res) => {
   })
 })
 
+
 // 404 handler
 app.use((req, res) => {
   res.status(404).json({
@@ -111,6 +126,7 @@ app.use((req, res) => {
     message: 'This endpoint does not exist'
   })
 })
+
 
 // Error handler
 app.use((err, req, res, next) => {
@@ -121,17 +137,22 @@ app.use((err, req, res, next) => {
   })
 })
 
+
 // ========================================
 // INITIALIZE WEBSOCKET
 // ========================================
 
+
 initializeTerminalSocket(io)
+
 
 // ========================================
 // START SERVER
 // ========================================
 
+
 const PORT = config.server.port || 3001
+
 
 server.listen(PORT, () => {
   logger.info('='.repeat(50))
@@ -150,9 +171,11 @@ server.listen(PORT, () => {
   logger.info('⏳ Waiting for connections...')
 })
 
+
 // ========================================
 // GRACEFUL SHUTDOWN
 // ========================================
+
 
 process.on('SIGINT', () => {
   logger.warning('\n🛑 Received SIGINT, shutting down gracefully...')
@@ -174,6 +197,7 @@ process.on('SIGINT', () => {
   }, 10000)
 })
 
+
 process.on('SIGTERM', () => {
   logger.warning('🛑 Received SIGTERM, shutting down gracefully...')
   
@@ -188,11 +212,13 @@ process.on('SIGTERM', () => {
   })
 })
 
+
 process.on('uncaughtException', (err) => {
   logger.error('💥 Uncaught Exception:', err.message)
   logger.error(err.stack)
   process.exit(1)
 })
+
 
 process.on('unhandledRejection', (reason, promise) => {
   logger.error('💥 Unhandled Rejection at:', promise)
