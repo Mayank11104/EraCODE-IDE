@@ -1,3 +1,7 @@
+// ============================================
+// AWS EC2 SERVICE - CLOUD TERMINAL MANAGEMENT
+// ============================================
+
 const { EC2Client, RunInstancesCommand, TerminateInstancesCommand, DescribeInstancesCommand } = require('@aws-sdk/client-ec2');
 const { Client } = require('ssh2');
 const fs = require('fs');
@@ -16,16 +20,11 @@ class AWSEc2Service {
     // Store active cloud sessions
     this.cloudSessions = new Map();
 
-    // Path to SSH private key
-    this.keyPath = path.join(__dirname, '..', 'eracode-terminal-key.pem');
-
-    // Verify key file exists
-    if (!fs.existsSync(this.keyPath)) {
-      console.error('❌ SSH key file not found:', this.keyPath);
-      throw new Error('SSH key file missing!');
-    }
+    // ✅ Use WSL key path (has correct 400 permissions)
+    this.keyPath = '/home/spydy/eracode-terminal-key.pem';
 
     console.log('✅ AWS EC2 Service initialized');
+    console.log('🔑 Using SSH key:', this.keyPath);
   }
 
   /**
@@ -56,8 +55,8 @@ class AWSEc2Service {
 
       const command = new RunInstancesCommand(params);
       const response = await this.ec2Client.send(command);
-
       const instanceId = response.Instances[0].InstanceId;
+
       console.log(`✅ Instance launched: ${instanceId}`);
 
       // Store session info
@@ -136,7 +135,10 @@ class AWSEc2Service {
       console.log(`🔌 Connecting to ${publicIp} via SSH...`);
 
       const conn = new Client();
-      const privateKey = fs.readFileSync(this.keyPath);
+      
+      // ✅ Read key from WSL path using wsl command
+      const { execSync } = require('child_process');
+      const privateKey = execSync(`wsl cat ${this.keyPath}`).toString();
 
       let attempts = 0;
       const maxAttempts = 20;
@@ -181,11 +183,186 @@ class AWSEc2Service {
   }
 
   /**
+   * Execute SSH command on remote instance
+   */
+  async executeSSHCommand(sshConnection, command) {
+    return new Promise((resolve, reject) => {
+      console.log(`🔧 Executing: ${command}`);
+
+      sshConnection.exec(command, (err, stream) => {
+        if (err) {
+          return reject(err);
+        }
+
+        let output = '';
+        let errorOutput = '';
+
+        stream.on('data', (data) => {
+          output += data.toString();
+        });
+
+        stream.stderr.on('data', (data) => {
+          errorOutput += data.toString();
+        });
+
+        stream.on('close', (code) => {
+          if (code === 0) {
+            resolve(output);
+          } else {
+            reject(new Error(`Command failed with code ${code}: ${errorOutput}`));
+          }
+        });
+      });
+    });
+  }
+
+  /**
+   * Get SSH private key path
+   */
+  getKeyPath() {
+    return this.keyPath;
+  }
+
+  /**
+   * Rsync project to EC2 instance (WSL-compatible for Windows)
+   */
+  async rsyncToEC2(localPath, publicIp, projectName, progressCallback) {
+    return new Promise((resolve, reject) => {
+      const { spawn } = require('child_process');
+      const os = require('os');
+
+      // Convert Windows path for rsync (WSL format)
+      let sourcePath = localPath;
+      if (os.platform() === 'win32') {
+        // D:\CODE\streamlit dash → /mnt/d/CODE/streamlit dash
+        sourcePath = localPath
+          .replace(/\\/g, '/')
+          .replace(/^([A-Z]):/, (match, drive) => `/mnt/${drive.toLowerCase()}`);
+      }
+
+      // Ensure trailing slash
+      if (!sourcePath.endsWith('/')) {
+        sourcePath += '/';
+      }
+
+      const remotePath = `ubuntu@${publicIp}:/home/ubuntu/${projectName}/`;
+
+      // ✅ Use WSL key path directly (already has correct permissions)
+      const wslKeyPath = this.keyPath;
+
+      console.log('🔄 Rsync parameters:', {
+        source: sourcePath,
+        destination: remotePath,
+        wslKeyPath: wslKeyPath
+      });
+
+      // rsync command arguments
+      const rsyncArgs = [
+  '-avz',
+  '--progress',
+  '--delete',
+  // Common heavy folders
+  '--exclude', 'node_modules',
+  '--exclude', '.git',
+  '--exclude', 'dist',
+  '--exclude', 'build',
+  '--exclude', '.next',
+  '--exclude', 'coverage',
+  // Python virtual environments
+  '--exclude', 'env',
+  '--exclude', 'env/',
+  '--exclude', 'venv',
+  '--exclude', 'venv/',
+  '--exclude', '.venv',
+  '--exclude', '.venv/',
+  '--exclude', '__pycache__',
+  '--exclude', '*.pyc',
+  '--exclude', '.pytest_cache',
+  // Environment files
+  '--exclude', '.env',
+  '--exclude', '.env.local',
+  '--exclude', '.env.*.local',
+  // SSH keys
+  '--exclude', '*.pem',
+  '--exclude', '*.key',
+  // OS files
+  '--exclude', '.DS_Store',
+  '--exclude', 'Thumbs.db',
+  // IDE files
+  '--exclude', '.vscode',
+  '--exclude', '.idea',
+  '-e', `ssh -i "${wslKeyPath}" -o StrictHostKeyChecking=no`,
+  sourcePath,
+  remotePath
+];
+      // 🔥 USE WSL ON WINDOWS
+      const isWindows = os.platform() === 'win32';
+      const rsyncCommand = isWindows ? 'wsl' : 'rsync';
+      const finalArgs = isWindows ? ['rsync', ...rsyncArgs] : rsyncArgs;
+
+      console.log('🚀 Running rsync via:', rsyncCommand);
+      console.log('🔧 Command:', rsyncCommand, finalArgs.slice(0, 5).join(' '), '...');
+
+      const rsync = spawn(rsyncCommand, finalArgs);
+
+      let lastPercent = 0;
+      let currentFile = '';
+      let fileCount = 0;
+
+      rsync.stdout.on('data', (data) => {
+        const output = data.toString();
+        console.log('[rsync stdout]', output.substring(0, 100));
+
+        const lines = output.split('\n');
+        lines.forEach(line => {
+          if (line.trim() && !line.includes('%') && !line.includes('sending') && !line.includes('total size')) {
+            fileCount++;
+            currentFile = line.trim();
+
+            const estimatedPercent = Math.min(95, fileCount * 2);
+            if (estimatedPercent > lastPercent) {
+              lastPercent = estimatedPercent;
+              if (progressCallback) {
+                progressCallback(lastPercent, currentFile);
+              }
+            }
+          }
+        });
+      });
+
+      rsync.stderr.on('data', (data) => {
+        const error = data.toString();
+        console.log('[rsync stderr]', error);
+        if (!error.includes('Warning:') && !error.includes('Permanently added')) {
+          console.warn('⚠️ Rsync warning:', error);
+        }
+      });
+
+      rsync.on('close', (code) => {
+        if (code === 0) {
+          console.log('✅ Rsync completed successfully');
+          if (progressCallback) {
+            progressCallback(100, 'Sync complete!');
+          }
+          resolve();
+        } else {
+          console.error(`❌ Rsync failed with exit code ${code}`);
+          reject(new Error(`rsync failed with exit code ${code}`));
+        }
+      });
+
+      rsync.on('error', (error) => {
+        console.error('❌ Rsync spawn error:', error);
+        reject(new Error(`Failed to start rsync: ${error.message}`));
+      });
+    });
+  }
+
+  /**
    * Terminate EC2 instance
    */
   async terminateInstance(sessionId) {
     const session = this.cloudSessions.get(sessionId);
-
     if (!session) {
       console.log(`⚠️ No session found for ${sessionId}`);
       return;

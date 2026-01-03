@@ -12,7 +12,7 @@ yarn-error.log*
 .env.local
 .env.production
 eracode-ide-backend\.env
-
+scriptforvid.txt
 # OS files
 .DS_Store
 Thumbs.db

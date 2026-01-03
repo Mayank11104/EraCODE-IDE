@@ -81,6 +81,17 @@ function initializeTerminalSocket(io) {
         logger.info(`☁️ Creating CLOUD terminal: ${sessionId}`)
         logger.info(`Region: ${cloudConfig.region}`)
 
+        // ✅ Extract project info
+        const { region, localProjectPath, projectName } = cloudConfig
+
+        // ✅ Log project info
+        if (localProjectPath && projectName) {
+          logger.info(`📦 Project Path: ${localProjectPath}`)
+          logger.info(`📦 Project Name: ${projectName}`)
+        } else {
+          logger.warning('⚠️ No project path provided - terminal will start in home directory')
+        }
+
         // Send progress updates
         socket.emit('cloud-terminal:progress', {
           stage: 'launching',
@@ -94,29 +105,90 @@ function initializeTerminalSocket(io) {
         socket.emit('cloud-terminal:progress', {
           stage: 'connecting',
           message: 'Establishing SSH connection...',
-          progress: 70
+          progress: 30
         })
 
         // Create SSH connection
         const sshConnection = await awsEc2Service.createSSHConnection(instance.publicIp)
+
+        // 🔥 NEW: RSYNC PROJECT FILES (if project path provided)
+        if (localProjectPath && projectName) {
+          socket.emit('cloud-terminal:progress', {
+            stage: 'rsync',
+            message: `📦 Syncing project files to cloud...`,
+            progress: 40
+          })
+
+          try {
+            // Create project directory on EC2
+            logger.info(`📁 Creating directory: /home/ubuntu/${projectName}`)
+            await awsEc2Service.executeSSHCommand(sshConnection, `mkdir -p /home/ubuntu/${projectName}`)
+
+            // Run rsync
+            logger.info(`📦 Starting rsync from ${localProjectPath}`)
+            await awsEc2Service.rsyncToEC2(
+              localProjectPath,
+              instance.publicIp,
+              projectName,
+              (percent, currentFile) => {
+                socket.emit('cloud-terminal:progress', {
+                  stage: 'rsync',
+                  message: `📦 Syncing... ${currentFile || 'files'}`,
+                  progress: 40 + (percent * 0.3)  // 40% to 70%
+                })
+              }
+            )
+
+            logger.success(`✅ Project synced to /home/ubuntu/${projectName}`)
+
+          } catch (error) {
+            logger.error(`❌ Rsync failed:`, error.message)
+            // Don't fail terminal creation, just warn
+            socket.emit('cloud-terminal:progress', {
+              stage: 'rsync-warning',
+              message: `⚠️ File sync failed, terminal will open anyway`,
+              progress: 70
+            })
+          }
+        }
+
+        socket.emit('cloud-terminal:progress', {
+          stage: 'terminal',
+          message: '🖥️ Opening terminal session...',
+          progress: 80
+        })
 
         // Store connection
         cloudConnections.set(sessionId, {
           sshConnection,
           instanceId: instance.instanceId,
           publicIp: instance.publicIp,
-          region: instance.region
+          region: instance.region,
+          projectPath: projectName ? `/home/ubuntu/${projectName}` : '/home/ubuntu'
         })
         socketCloudTerminals.add(sessionId)
 
-        // Open shell session
-        sshConnection.shell((err, stream) => {
+        // Open shell session with correct working directory
+        const shellOptions = projectName ? {
+          term: 'xterm-256color',
+          env: {
+            PATH: '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin',
+            PWD: `/home/ubuntu/${projectName}`
+          }
+        } : {}
+
+        sshConnection.shell(shellOptions, (err, stream) => {
           if (err) {
             throw new Error(`Failed to open shell: ${err.message}`)
           }
 
           // Store stream for writing
           cloudConnections.get(sessionId).stream = stream
+
+          // 🔥 NEW: Change to project directory if exists
+          if (projectName) {
+            stream.write(`cd /home/ubuntu/${projectName}\n`)
+          }
 
           // Forward SSH output to client
           stream.on('data', (data) => {
@@ -137,7 +209,8 @@ function initializeTerminalSocket(io) {
             instanceId: instance.instanceId,
             publicIp: instance.publicIp,
             region: instance.region,
-            instanceType: process.env.AWS_INSTANCE_TYPE || 't3.micro'
+            instanceType: process.env.AWS_INSTANCE_TYPE || 't3.micro',
+            projectPath: projectName ? `/home/ubuntu/${projectName}` : '/home/ubuntu'
           })
 
           logger.success(`✅ CLOUD terminal ${sessionId} ready at ${instance.publicIp}`)
@@ -146,7 +219,7 @@ function initializeTerminalSocket(io) {
       } catch (error) {
         logger.error(`❌ Cloud terminal creation failed:`, error.message)
         socket.emit('cloud-terminal:error', sessionId, error.message)
-        
+
         // Cleanup on failure
         await awsEc2Service.terminateInstance(sessionId)
       }
@@ -223,7 +296,7 @@ function initializeTerminalSocket(io) {
     socket.on('cloud-terminal:close', async (sessionId) => {
       try {
         logger.info(`☁️ Closing CLOUD terminal: ${sessionId}`)
-        
+
         const connection = cloudConnections.get(sessionId)
         if (connection) {
           // Close SSH connection
@@ -233,10 +306,10 @@ function initializeTerminalSocket(io) {
           if (connection.sshConnection) {
             connection.sshConnection.end()
           }
-          
+
           // Terminate EC2 instance
           await awsEc2Service.terminateInstance(sessionId)
-          
+
           cloudConnections.delete(sessionId)
           socketCloudTerminals.delete(sessionId)
         }
