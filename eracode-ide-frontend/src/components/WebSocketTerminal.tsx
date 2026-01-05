@@ -1,9 +1,11 @@
-import { useEffect, useRef, useState } from 'react'
+// src/components/WebSocketTerminal.tsx
+
+import { useEffect, useRef, useState, useImperativeHandle, forwardRef } from 'react'
 import { Terminal } from 'xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import { WebLinksAddon } from '@xterm/addon-web-links'
 import { io, Socket } from 'socket.io-client'
-import { Plus, X, Terminal as TerminalIcon, WifiOff, Wifi, Cloud } from 'lucide-react'
+import { Plus, X, Terminal as TerminalIcon, WifiOff, Wifi, Cloud, AlertTriangle } from 'lucide-react'
 import { useFileSystemStore } from '../stores/fileSystemStore'
 import 'xterm/css/xterm.css'
 
@@ -16,6 +18,7 @@ interface TerminalInstance {
   type: 'local' | 'cloud'
   cloudInfo?: {
     instanceId: string
+    instanceName: string
     publicIp: string
     region: string
   }
@@ -27,15 +30,86 @@ interface WebSocketTerminalProps {
   terminalType?: 'local' | 'cloud' | null
   cloudConfig?: {
     region: string
+    mode?: 'new' | 'existing'
+    customInstanceName?: string
+    shouldSync?: boolean
   }
+  onClosePanel?: () => void
 }
 
-export default function WebSocketTerminal({ terminalType, cloudConfig }: WebSocketTerminalProps) {
+// ✅ Export handle type for parent components
+export interface WebSocketTerminalHandle {
+  requestClose: () => boolean
+}
+
+const WebSocketTerminal = forwardRef<WebSocketTerminalHandle, WebSocketTerminalProps>(
+  ({ terminalType, cloudConfig, onClosePanel }, ref) => {
   const [terminals, setTerminals] = useState<TerminalInstance[]>([])
   const [activeTerminalId, setActiveTerminalId] = useState<string | null>(null)
   const [isConnected, setIsConnected] = useState(false)
   const [cloudStatus, setCloudStatus] = useState<string>('')
   const socketRef = useRef<Socket | null>(null)
+  
+  // ✅ REFS to prevent re-renders
+  const terminalsRef = useRef<TerminalInstance[]>([])
+  const activeTerminalIdRef = useRef<string | null>(null)
+  const onClosePanelRef = useRef(onClosePanel)
+
+  const [closeDialog, setCloseDialog] = useState<{ show: boolean; terminalId: string | null }>({ 
+    show: false, 
+    terminalId: null 
+  })
+
+  // ✅ NEW: Track if we're closing the panel
+  const [pendingPanelClose, setPendingPanelClose] = useState(false)
+
+  const [errorDialog, setErrorDialog] = useState<{ show: boolean; message: string; details: string }>({
+    show: false,
+    message: '',
+    details: '',
+  })
+
+  // ✅ Keep refs in sync with state
+  useEffect(() => {
+    terminalsRef.current = terminals
+  }, [terminals])
+
+  useEffect(() => {
+    activeTerminalIdRef.current = activeTerminalId
+  }, [activeTerminalId])
+
+  useEffect(() => {
+    onClosePanelRef.current = onClosePanel
+  }, [onClosePanel])
+
+  // ✅ Expose method to parent for requesting close
+  useImperativeHandle(ref, () => ({
+    requestClose: () => {
+      const cloudTerminals = terminalsRef.current.filter(t => t.type === 'cloud')
+      
+      if (cloudTerminals.length > 0) {
+        // Show dialog for first cloud terminal
+        setCloseDialog({ show: true, terminalId: cloudTerminals[0].id })
+        setPendingPanelClose(true)
+        return false // Cannot close yet
+      }
+      
+      return true // Can close immediately
+    }
+  }))
+
+  // ✅ Helper function that uses refs
+  const removeTerminalByIdInternal = (id: string) => {
+    setTerminals(prev => {
+      const filtered = prev.filter(t => t.id !== id)
+      if (activeTerminalIdRef.current === id && filtered.length > 0) {
+        setActiveTerminalId(filtered[0].id)
+      } else if (filtered.length === 0) {
+        setActiveTerminalId(null)
+      }
+      return filtered
+    })
+  }
 
   // Initialize Socket.IO connection
   useEffect(() => {
@@ -74,70 +148,171 @@ export default function WebSocketTerminal({ terminalType, cloudConfig }: WebSock
 
     socket.on('terminal:exit', (terminalId: string, exitCode: number) => {
       console.log(`❌ Terminal ${terminalId} exited with code ${exitCode}`)
-      removeTerminalById(terminalId)
+      removeTerminalByIdInternal(terminalId)
     })
 
     socket.on('terminal:error', (terminalId: string, error: string) => {
       console.error(`❌ Terminal ${terminalId} error:`, error)
       alert(`Terminal Error: ${error}`)
-      removeTerminalById(terminalId)
+      removeTerminalByIdInternal(terminalId)
     })
 
     // Cloud terminal events
     socket.on('cloud-terminal:progress', (data: { stage: string, message: string, progress: number }) => {
       console.log(`☁️ ${data.stage}: ${data.message} (${data.progress}%)`)
       setCloudStatus(data.message)
+      
+      // ✅ USE REF
+      const terminal = terminalsRef.current.find(t => t.type === 'cloud' && !t.cloudInfo)
+      if (terminal) {
+        terminal.xterm.writeln(`\r\x1b[36m☁️ ${data.message}\x1b[0m`)
+      }
     })
 
-    socket.on('cloud-terminal:ready', (info: any) => {
-      console.log('✅ Cloud terminal ready:', info)
+  socket.on('cloud-terminal:ready', (info: any) => {
+  console.log('✅ Cloud terminal ready:', info)
+  console.log('📝 Instance name:', info.instanceName)
+  setCloudStatus('')
+  
+  // Update terminal with cloud info
+  setTerminals(prev => prev.map(t => {
+    if (t.id === info.sessionId && t.type === 'cloud') {
+      // ✅ WRITE IMMEDIATELY - NO setTimeout!
+      const terminal = t.xterm
+      
+      terminal.writeln('\r\n\x1b[1;32m╔═══════════════════════════════════════════════════════╗\x1b[0m')
+      terminal.writeln('\x1b[1;32m║  ✅ CLOUD TERMINAL READY                             ║\x1b[0m')
+      terminal.writeln('\x1b[1;32m╚═══════════════════════════════════════════════════════╝\x1b[0m')
+      terminal.writeln('')
+      terminal.writeln(`\x1b[1;36m📝 Instance Name: \x1b[1;33m${info.instanceName}\x1b[0m`)
+      terminal.writeln('')
+      terminal.writeln('\x1b[1;93m⚠️  SAVE THIS NAME FOR LATER!\x1b[0m')
+      terminal.writeln('\x1b[90m   Use this name to reconnect to this instance\x1b[0m')
+      terminal.writeln('\x1b[90m   when you close and reopen the terminal.\x1b[0m')
+      terminal.writeln('')
+      terminal.writeln('\x1b[1;32m════════════════════════════════════════════════════════\x1b[0m\r\n')
+      
+      return {
+        ...t,
+        name: `☁️ ${info.instanceName || info.publicIp}`,
+        cloudInfo: {
+          instanceId: info.instanceId,
+          instanceName: info.instanceName,
+          publicIp: info.publicIp,
+          region: info.region
+        }
+      }
+    }
+    return t
+  }))
+})
+
+
+    socket.on('cloud-terminal:instance-not-found', (data: { customName: string, message: string }) => {
+      console.error('❌ Instance not found:', data.message)
+      
       setCloudStatus('')
       
-      // Update terminal with cloud info
-      setTerminals(prev => prev.map(t => {
-        if (t.id === info.sessionId && t.type === 'cloud') {
-          return {
-            ...t,
-            cloudInfo: {
-              instanceId: info.instanceId,
-              publicIp: info.publicIp,
-              region: info.region
-            }
-          }
+      setErrorDialog({
+        show: true,
+        message: 'Instance Not Found',
+        details: `Instance "${data.customName}" not found.\n\nPlease:\n• Check the spelling of the instance name\n• Create a new instance if it doesn't exist\n• Make sure the instance wasn't terminated`
+      })
+
+      setTerminals(prev => {
+        const failedTerminals = prev.filter(t => t.type === 'cloud' && !t.cloudInfo)
+        
+        failedTerminals.forEach(term => {
+          console.log('🗑️ Disposing failed terminal:', term.id)
+          term.xterm.dispose()
+        })
+        
+        const filtered = prev.filter(t => {
+          if (t.type === 'local') return true
+          if (t.type === 'cloud' && t.cloudInfo) return true
+          return false
+        })
+        
+        if (filtered.length === 0) {
+          console.log('🚪 No terminals remaining. Closing terminal panel in 2 seconds...')
+          setTimeout(() => {
+            onClosePanelRef.current?.()
+          }, 2000)
         }
-        return t
-      }))
+        
+        if (filtered.length > 0 && !filtered.find(t => t.id === activeTerminalIdRef.current)) {
+          setActiveTerminalId(filtered[0].id)
+        } else if (filtered.length === 0) {
+          setActiveTerminalId(null)
+        }
+        
+        console.log(`✅ Cleaned up ${failedTerminals.length} failed terminal(s). ${filtered.length} terminal(s) remaining.`)
+        return filtered
+      })
+    })
+
+    socket.on('cloud-terminal:instance-found', (data: any) => {
+      console.log('✅ Instance found:', data)
+      setCloudStatus(`Instance found: ${data.state}. ${data.state === 'stopped' ? 'Starting...' : 'Connecting...'}`)
     })
 
     socket.on('cloud-terminal:error', (sessionId: string, error: string) => {
       console.error(`❌ Cloud terminal ${sessionId} error:`, error)
-      alert(`Cloud Terminal Error: ${error}`)
+      
       setCloudStatus('')
-      removeTerminalById(sessionId)
+      
+      setErrorDialog({
+        show: true,
+        message: 'Cloud Terminal Error',
+        details: error
+      })
+      
+      removeTerminalByIdInternal(sessionId)
+      
+      setTerminals(prev => {
+        const filtered = prev.filter(t => t.id !== sessionId)
+        if (filtered.length === 0) {
+          setTimeout(() => {
+            onClosePanelRef.current?.()
+          }, 2000)
+        }
+        return filtered
+      })
     })
 
     socket.on('cloud-terminal:exit', (sessionId: string) => {
       console.log(`❌ Cloud terminal ${sessionId} exited`)
-      removeTerminalById(sessionId)
+      removeTerminalByIdInternal(sessionId)
+    })
+
+    socket.on('cloud-terminal:stopped', (data: { sessionId: string, instanceName: string, message: string }) => {
+      console.log('⏸️ Instance stopped:', data.message)
+      alert(`✅ ${data.message}`)
+    })
+
+    socket.on('cloud-terminal:terminated', (data: { sessionId: string, message: string }) => {
+      console.log('🗑️ Instance terminated:', data.message)
     })
 
     return () => {
       console.log('🔌 Disconnecting socket')
       socket.disconnect()
     }
-  }, [])
+  }, []) // ✅ EMPTY DEPS - Socket stays connected!
 
   // Handle terminal data for both local and cloud
   useEffect(() => {
     const handleLocalData = (terminalId: string, data: string) => {
-      const terminal = terminals.find(t => t.id === terminalId && t.type === 'local')
+      // ✅ USE REF
+      const terminal = terminalsRef.current.find(t => t.id === terminalId && t.type === 'local')
       if (terminal) {
         terminal.xterm.write(data)
       }
     }
 
     const handleCloudData = (sessionId: string, data: string) => {
-      const terminal = terminals.find(t => t.id === sessionId && t.type === 'cloud')
+      // ✅ USE REF
+      const terminal = terminalsRef.current.find(t => t.id === sessionId && t.type === 'cloud')
       if (terminal) {
         terminal.xterm.write(data)
       }
@@ -150,7 +325,7 @@ export default function WebSocketTerminal({ terminalType, cloudConfig }: WebSock
       socketRef.current?.off('terminal:data', handleLocalData)
       socketRef.current?.off('cloud-terminal:data', handleCloudData)
     }
-  }, [terminals])
+  }, []) // ✅ EMPTY DEPS
 
   const removeTerminalById = (id: string) => {
     setTerminals(prev => {
@@ -174,12 +349,10 @@ export default function WebSocketTerminal({ terminalType, cloudConfig }: WebSock
     const terminalId = `terminal-${Date.now()}`
     const terminalNumber = terminals.length + 1
 
-    // Determine type
     const type = terminalType || 'local'
     
     console.log(`📟 Creating ${type} terminal:`, terminalId)
 
-    // Create XTerm instance
     const xterm = new Terminal({
       cursorBlink: true,
       fontSize: 14,
@@ -210,7 +383,6 @@ export default function WebSocketTerminal({ terminalType, cloudConfig }: WebSock
     ])
     setActiveTerminalId(terminalId)
 
-    // Mount to DOM
     setTimeout(() => {
       const container = document.getElementById(`term-${terminalId}`)
       if (container) {
@@ -218,7 +390,6 @@ export default function WebSocketTerminal({ terminalType, cloudConfig }: WebSock
         fitAddon.fit()
         xterm.focus()
 
-        // Handle user input
         if (type === 'local') {
           xterm.onData((data) => {
             socketRef.current?.emit('terminal:write', terminalId, data)
@@ -227,7 +398,6 @@ export default function WebSocketTerminal({ terminalType, cloudConfig }: WebSock
             socketRef.current?.emit('terminal:resize', terminalId, cols, rows)
           })
 
-          // Send creation request
           const { rootDirectory } = useFileSystemStore.getState()
           socketRef.current?.emit('terminal:create', terminalId, {
             cols: 80,
@@ -236,31 +406,130 @@ export default function WebSocketTerminal({ terminalType, cloudConfig }: WebSock
             cwd: rootDirectory?.path
           })
         } else if (type === 'cloud') {
-  setCloudStatus('Launching cloud terminal...')
-  xterm.onData((data) => {
-    socketRef.current?.emit('cloud-terminal:write', terminalId, data)
-  })
-  xterm.onResize(({ cols, rows }) => {
-    socketRef.current?.emit('cloud-terminal:resize', terminalId, cols, rows)
-  })
-  
-  // Get project info from fileSystemStore
-  const { rootDirectory } = useFileSystemStore.getState()
-  
-  // Send cloud creation request WITH PROJECT INFO
-  socketRef.current?.emit('cloud-terminal:create', terminalId, {
-    ...cloudConfig,  // ✅ Keeps region
-    localProjectPath: rootDirectory?.path,  // ✅ NEW: e.g., "C:\Users\asus\Desktop\myproject"
-    projectName: rootDirectory?.name        // ✅ NEW: e.g., "myproject"
-  })
-  
-  console.log('☁️ Launching cloud terminal with project:', {
-    path: rootDirectory?.path,
-    name: rootDirectory?.name
-  })
-}
+          xterm.onData((data) => {
+            socketRef.current?.emit('cloud-terminal:write', terminalId, data)
+          })
+          xterm.onResize(({ cols, rows }) => {
+            socketRef.current?.emit('cloud-terminal:resize', terminalId, cols, rows)
+          })
+          
+          const { rootDirectory } = useFileSystemStore.getState()
+          
+          if (cloudConfig?.mode === 'existing') {
+            setCloudStatus('🔍 Finding existing instance...')
+            
+            socketRef.current?.emit('cloud-terminal:find-instance', cloudConfig.customInstanceName)
+            
+            const handleInstanceFound = (data: any) => {
+              socketRef.current?.off('cloud-terminal:instance-found', handleInstanceFound)
+              
+              socketRef.current?.emit('cloud-terminal:reconnect', terminalId, {
+                instanceId: data.instanceId,
+                customInstanceName: cloudConfig.customInstanceName,
+                shouldSync: cloudConfig.shouldSync || false,
+                localProjectPath: rootDirectory?.path,
+                projectName: rootDirectory?.name
+              })
+            }
+            
+            socketRef.current?.on('cloud-terminal:instance-found', handleInstanceFound)
+            
+          } else {
+            setCloudStatus('Launching cloud terminal...')
+            
+            socketRef.current?.emit('cloud-terminal:create', terminalId, {
+              region: cloudConfig?.region,
+              customInstanceName: cloudConfig?.customInstanceName,
+              localProjectPath: rootDirectory?.path,
+              projectName: rootDirectory?.name
+            })
+          }
+          
+          console.log('☁️ Cloud config:', {
+            mode: cloudConfig?.mode,
+            instanceName: cloudConfig?.customInstanceName,
+            shouldSync: cloudConfig?.shouldSync,
+            path: rootDirectory?.path,
+            name: rootDirectory?.name
+          })
+        }
       }
     }, 100)
+  }
+
+  const handleCloudTerminalClose = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    const terminal = terminals.find(t => t.id === id)
+    
+    if (terminal && terminal.type === 'cloud') {
+      setCloseDialog({ show: true, terminalId: id })
+    }
+  }
+
+  // ✅ UPDATED: Handle stop with panel close logic
+  const handleStopInstance = () => {
+    if (closeDialog.terminalId) {
+      const terminal = terminals.find(t => t.id === closeDialog.terminalId)
+      if (terminal) {
+        terminal.xterm.dispose()
+        socketRef.current?.emit('cloud-terminal:stop', closeDialog.terminalId)
+        removeTerminalById(closeDialog.terminalId)
+      }
+      
+      // Get remaining cloud terminals BEFORE closing dialog
+      const remainingCloud = terminalsRef.current.filter(
+        t => t.type === 'cloud' && t.id !== closeDialog.terminalId
+      )
+      
+      setCloseDialog({ show: false, terminalId: null })
+      
+      // Check if we were trying to close panel
+      if (pendingPanelClose) {
+        if (remainingCloud.length > 0) {
+          // More cloud terminals, show next dialog
+          setTimeout(() => {
+            setCloseDialog({ show: true, terminalId: remainingCloud[0].id })
+          }, 100)
+        } else {
+          // All handled, close panel
+          setPendingPanelClose(false)
+          onClosePanelRef.current?.()
+        }
+      }
+    }
+  }
+
+  // ✅ UPDATED: Handle terminate with panel close logic
+  const handleTerminateInstance = () => {
+    if (closeDialog.terminalId) {
+      const terminal = terminals.find(t => t.id === closeDialog.terminalId)
+      if (terminal) {
+        terminal.xterm.dispose()
+        socketRef.current?.emit('cloud-terminal:terminate', closeDialog.terminalId)
+        removeTerminalById(closeDialog.terminalId)
+      }
+      
+      // Get remaining cloud terminals BEFORE closing dialog
+      const remainingCloud = terminalsRef.current.filter(
+        t => t.type === 'cloud' && t.id !== closeDialog.terminalId
+      )
+      
+      setCloseDialog({ show: false, terminalId: null })
+      
+      // Check if we were trying to close panel
+      if (pendingPanelClose) {
+        if (remainingCloud.length > 0) {
+          // More cloud terminals, show next dialog
+          setTimeout(() => {
+            setCloseDialog({ show: true, terminalId: remainingCloud[0].id })
+          }, 100)
+        } else {
+          // All handled, close panel
+          setPendingPanelClose(false)
+          onClosePanelRef.current?.()
+        }
+      }
+    }
   }
 
   // Remove terminal
@@ -268,15 +537,15 @@ export default function WebSocketTerminal({ terminalType, cloudConfig }: WebSock
     e.stopPropagation()
     const terminal = terminals.find(t => t.id === id)
     if (terminal) {
-      terminal.xterm.dispose()
-      
       if (terminal.type === 'local') {
+        terminal.xterm.dispose()
         socketRef.current?.emit('terminal:kill', id)
+        removeTerminalById(id)
       } else if (terminal.type === 'cloud') {
-        socketRef.current?.emit('cloud-terminal:close', id)
+        handleCloudTerminalClose(id, e)
+        return
       }
     }
-    removeTerminalById(id)
   }
 
   // Switch terminal
@@ -292,17 +561,39 @@ export default function WebSocketTerminal({ terminalType, cloudConfig }: WebSock
     }
   }
 
-  // Handle resize
+  // Handle resize - BOTH window AND container
   useEffect(() => {
     const handleResize = () => {
       terminals.forEach(terminal => {
         if (terminal.isActive) {
-          terminal.fitAddon.fit()
+          setTimeout(() => {
+            try {
+              terminal.fitAddon.fit()
+            } catch (e) {
+              console.log('Fit error:', e)
+            }
+          }, 10)
         }
       })
     }
+
+    handleResize()
     window.addEventListener('resize', handleResize)
-    return () => window.removeEventListener('resize', handleResize)
+    
+    const containers = terminals.map(t => document.getElementById(`term-${t.id}`))
+    const observers = containers.map(container => {
+      if (container?.parentElement) {
+        const observer = new ResizeObserver(handleResize)
+        observer.observe(container.parentElement)
+        return observer
+      }
+      return null
+    })
+
+    return () => {
+      window.removeEventListener('resize', handleResize)
+      observers.forEach(observer => observer?.disconnect())
+    }
   }, [terminals])
 
   return (
@@ -318,6 +609,7 @@ export default function WebSocketTerminal({ terminalType, cloudConfig }: WebSock
               className={`group flex items-center gap-2 px-3 py-1 rounded cursor-pointer transition-all ${
                 terminal.isActive ? 'bg-[#1e1e1e] text-white' : 'text-[#969696] hover:bg-[#2d2d30]'
               }`}
+              title={terminal.cloudInfo?.instanceName || terminal.name}
             >
               {terminal.name}
               <X
@@ -325,7 +617,7 @@ export default function WebSocketTerminal({ terminalType, cloudConfig }: WebSock
                 onClick={(e) => removeTerminal(terminal.id, e)}
                 className="opacity-0 group-hover:opacity-100 hover:text-red-400"
               />
-            </div>
+            </div>  
           ))}
           
           {/* Add Button */}
@@ -364,7 +656,7 @@ export default function WebSocketTerminal({ terminalType, cloudConfig }: WebSock
           <div
             key={terminal.id}
             id={`term-${terminal.id}`}
-            className={`absolute inset-0 ${terminal.isActive ? 'block' : 'hidden'}`}
+            className={`absolute inset-0 ${terminal.isActive ? 'block' : 'hidden'} h-full w-full`}
           />
         ))}
 
@@ -388,6 +680,128 @@ export default function WebSocketTerminal({ terminalType, cloudConfig }: WebSock
           </div>
         )}
       </div>
+
+      {/* Error Dialog */}
+      {errorDialog.show && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-[#252526] border border-red-500 rounded-lg shadow-2xl max-w-md w-full mx-4">
+            <div className="flex items-center justify-between p-4 border-b border-[#3e3e42] bg-red-900/20">
+              <h3 className="text-lg font-semibold text-red-400 flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5" />
+                {errorDialog.message}
+              </h3>
+              <button
+                onClick={() => {
+                  setErrorDialog({ show: false, message: '', details: '' })
+                  if (terminals.length === 0) {
+                    onClosePanel?.()
+                  }
+                }}
+                className="text-gray-400 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6">
+              <div className="bg-[#1e1e1e] p-4 rounded-lg border border-red-500/30 mb-4">
+                <p className="text-sm text-gray-300 whitespace-pre-line">
+                  {errorDialog.details}
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  setErrorDialog({ show: false, message: '', details: '' })
+                  if (terminals.length === 0) {
+                    onClosePanel?.()
+                  }
+                }}
+                className="w-full px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded transition-colors"
+              >
+                OK, Got It
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Close Dialog */}
+      {closeDialog.show && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-[#252526] border border-[#3e3e42] rounded-lg shadow-2xl max-w-md w-full mx-4">
+            <div className="flex items-center justify-between p-4 border-b border-[#3e3e42]">
+              <h3 className="text-lg font-semibold text-white">☁️ Close Cloud Terminal</h3>
+              <button
+                onClick={() => {
+                  setCloseDialog({ show: false, terminalId: null })
+                  setPendingPanelClose(false) // ✅ Cancel panel close
+                }}
+                className="text-gray-400 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6">
+              <div className="bg-[#1e1e1e] p-4 rounded-lg border border-yellow-500/30 mb-6">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle className="w-5 h-5 text-yellow-400 mt-0.5" />
+                  <div className="text-sm text-gray-300">
+                    <p className="font-semibold text-yellow-400 mb-1">⚠️ Choose what to do with instance</p>
+                    {pendingPanelClose && (
+                      <p className="mb-2 text-yellow-300">
+                        {terminalsRef.current.filter(t => t.type === 'cloud').length > 1 
+                          ? `You have ${terminalsRef.current.filter(t => t.type === 'cloud').length} cloud terminals. Choose for each.`
+                          : 'Choose what to do before closing terminal.'}
+                      </p>
+                    )}
+                    <p className="text-xs text-gray-400">Default: Terminate (deletes instance)</p>
+                  </div>
+                </div>
+              </div>
+              <div className="space-y-3">
+                <div className="bg-[#1e1e1e] p-4 rounded-lg border border-[#3e3e42]">
+                  <h4 className="font-semibold text-white mb-1">⏸️ Stop</h4>
+                  <p className="text-sm text-gray-400">
+                    Save instance for later. Costs storage fees (~$0.10/month)
+                  </p>
+                </div>
+                <div className="bg-[#1e1e1e] p-4 rounded-lg border border-[#3e3e42]">
+                  <h4 className="font-semibold text-white mb-1">🗑️ Terminate</h4>
+                  <p className="text-sm text-gray-400">
+                    Delete instance completely. No charges. Cannot recover.
+                  </p>
+                </div>
+              </div>
+              <div className="flex gap-3 mt-6">
+                <button
+                  onClick={handleStopInstance}
+                  className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors"
+                >
+                  ⏸️ Stop
+                </button>
+                <button
+                  onClick={handleTerminateInstance}
+                  className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded transition-colors"
+                >
+                  🗑️ Terminate
+                </button>
+              </div>
+              <button
+                onClick={() => {
+                  setCloseDialog({ show: false, terminalId: null })
+                  setPendingPanelClose(false) // ✅ Cancel panel close
+                }}
+                className="w-full mt-3 px-4 py-2 text-gray-400 hover:text-white transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
-}
+})
+
+WebSocketTerminal.displayName = 'WebSocketTerminal'
+
+export default WebSocketTerminal

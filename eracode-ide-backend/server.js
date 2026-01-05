@@ -1,5 +1,6 @@
 require('dotenv').config(); // ✅ ADD THIS AS FIRST LINE
 
+
 // ============================================
 // ERACODE IDE BACKEND SERVER
 // ============================================
@@ -11,13 +12,16 @@ const logger = require('./utils/logger')
 const initializeTerminalSocket = require('./sockets/terminal.socket')
 
 
+
 // ========================================
 // INITIALIZE EXPRESS & SOCKET.IO
 // ========================================
 
 
+
 const app = express()
 const server = http.createServer(app)
+
 
 
 // Initialize Socket.IO with CORS
@@ -33,14 +37,17 @@ const io = new Server(server, {
 })
 
 
+
 // ========================================
 // MIDDLEWARE
 // ========================================
 
 
+
 // Parse JSON bodies
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
+
 
 
 // CORS for REST API
@@ -57,6 +64,7 @@ app.use((req, res, next) => {
 })
 
 
+
 // Request logging
 app.use((req, res, next) => {
   logger.info(`${req.method} ${req.path}`)
@@ -64,9 +72,11 @@ app.use((req, res, next) => {
 })
 
 
+
 // ========================================
 // ROUTES
 // ========================================
+
 
 
 // ✅ UNUSED ROUTES - Kept for future reference
@@ -76,6 +86,7 @@ app.use((req, res, next) => {
 // const fileSystemRoutes = require('./routes/filesystem.routes')
 // app.use('/api/system', systemRoutes)
 // app.use('/api/fs', fileSystemRoutes)
+
 
 
 // Root endpoint
@@ -93,6 +104,7 @@ app.get('/', (req, res) => {
 })
 
 
+
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({
@@ -103,6 +115,7 @@ app.get('/api/health', (req, res) => {
     platform: process.platform
   })
 })
+
 
 
 // Terminals endpoint
@@ -118,6 +131,7 @@ app.get('/api/terminals', (req, res) => {
 })
 
 
+
 // 404 handler
 app.use((req, res) => {
   res.status(404).json({
@@ -126,6 +140,7 @@ app.use((req, res) => {
     message: 'This endpoint does not exist'
   })
 })
+
 
 
 // Error handler
@@ -138,12 +153,15 @@ app.use((err, req, res, next) => {
 })
 
 
+
 // ========================================
 // INITIALIZE WEBSOCKET
 // ========================================
 
 
+
 initializeTerminalSocket(io)
+
 
 
 // ========================================
@@ -151,7 +169,9 @@ initializeTerminalSocket(io)
 // ========================================
 
 
+
 const PORT = config.server.port || 3001
+
 
 
 server.listen(PORT, () => {
@@ -172,53 +192,62 @@ server.listen(PORT, () => {
 })
 
 
+
 // ========================================
 // GRACEFUL SHUTDOWN
 // ========================================
 
+const awsEc2Service = require('./services/awsEc2Service')
 
-process.on('SIGINT', () => {
-  logger.warning('\n🛑 Received SIGINT, shutting down gracefully...')
+async function gracefulShutdown(signal) {
+  logger.warning(`\n🛑 Received ${signal}, shutting down gracefully...`)
   
-  const terminalService = require('./services/terminal.service')
-  
-  // Cleanup terminals
-  terminalService.cleanup()
-  
-  server.close(() => {
-    logger.success('✅ Server closed successfully')
-    process.exit(0)
-  })
-  
-  // Force exit after 10 seconds
-  setTimeout(() => {
-    logger.error('⚠️ Forced shutdown after timeout')
+  try {
+    const terminalService = require('./services/terminal.service')
+    
+    // Cleanup local terminals
+    logger.info('🧹 Cleaning up local terminals...')
+    terminalService.cleanup()
+    
+    // ⚠️ DON'T auto-terminate cloud instances
+    // Just log them for user awareness
+    const activeSessions = Array.from(awsEc2Service.cloudSessions.keys())
+    if (activeSessions.length > 0) {
+      logger.warning(`\n⚠️ ${activeSessions.length} cloud instance(s) still running:`)
+      for (const sessionId of activeSessions) {
+        const session = awsEc2Service.cloudSessions.get(sessionId)
+        logger.warning(`   - ${session.instanceName} (${session.instanceId})`)
+      }
+      logger.warning(`💡 These instances will continue running.`)
+      logger.warning(`💡 Stop or terminate them from the frontend UI.`)
+    }
+    
+    server.close(() => {
+      logger.success('✅ Server closed successfully')
+      process.exit(0)
+    })
+    
+    // Force exit after 10 seconds
+    setTimeout(() => {
+      logger.error('⚠️ Forced shutdown after timeout')
+      process.exit(1)
+    }, 10000)
+    
+  } catch (error) {
+    logger.error('❌ Error during shutdown:', error.message)
     process.exit(1)
-  }, 10000)
-})
+  }
+}
 
+process.on('SIGINT', () => gracefulShutdown('SIGINT'))
 
-process.on('SIGTERM', () => {
-  logger.warning('🛑 Received SIGTERM, shutting down gracefully...')
-  
-  const terminalService = require('./services/terminal.service')
-  
-  // Cleanup terminals
-  terminalService.cleanup()
-  
-  server.close(() => {
-    logger.success('✅ Server closed successfully')
-    process.exit(0)
-  })
-})
-
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'))
 
 process.on('uncaughtException', (err) => {
   logger.error('💥 Uncaught Exception:', err.message)
   logger.error(err.stack)
   process.exit(1)
 })
-
 
 process.on('unhandledRejection', (reason, promise) => {
   logger.error('💥 Unhandled Rejection at:', promise)

@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Bot, Terminal as TerminalIcon } from 'lucide-react'
 import Sidebar from '../components/Sidebar'
 import AgentPanel from '../components/AgentPanel'
-import TerminalTypeSelector from '../components/TerminalTypeSelector' // ✅ ONLY THIS ADDED
+import TerminalTypeSelector from '../components/TerminalTypeSelector'
 
 // Import LEFT panels
 import ExplorerPanel from '../components/panels/ExplorerPanel'
@@ -25,8 +25,11 @@ import TerminalPage from './TerminalPage'
 // Import store
 import { useEditorStore } from '../stores/editorStore'
 
-// ✅ Import types (ONLY THIS ADDED)
+// Import types
 import { TerminalType, CloudTerminalConfig } from '../types/terminal.types'
+
+// ✅ Import handle type
+import { WebSocketTerminalHandle } from '../components/WebSocketTerminal'
 
 export default function MainPage() {
   // Store
@@ -41,9 +44,12 @@ export default function MainPage() {
   
   // Terminal state
   const [showTerminal, setShowTerminal] = useState(false)
-  const [showTerminalSelector, setShowTerminalSelector] = useState(false) // ✅ ADDED
-  const [terminalType, setTerminalType] = useState<TerminalType | null>(null) // ✅ ADDED
-  const [cloudConfig, setCloudConfig] = useState<CloudTerminalConfig>() // ✅ ADDED
+  const [showTerminalSelector, setShowTerminalSelector] = useState(false)
+  const [terminalType, setTerminalType] = useState<TerminalType | null>(null)
+  const [cloudConfig, setCloudConfig] = useState<CloudTerminalConfig>()
+  
+  // ✅ NEW: Terminal ref for handling close
+  const terminalRef = useRef<WebSocketTerminalHandle>(null)
   
   // Center page state - starts as welcome, switches to editor once a file is opened
   const [showEditor, setShowEditor] = useState(false)
@@ -67,20 +73,24 @@ export default function MainPage() {
     }
   }
 
-  // ✅ UPDATED - Handle terminal toggle with selector
+  // ✅ UPDATED - Handle terminal toggle with cloud terminal check
   const handleTerminalToggle = () => {
     if (showTerminal) {
-      // If terminal is already open, just close it
-      setShowTerminal(false)
-      setTerminalType(null)
-      setCloudConfig(undefined)
+      // Try to close - terminal will show dialogs if needed
+      const canClose = terminalRef.current?.requestClose()
+      if (canClose) {
+        setShowTerminal(false)
+        setTerminalType(null)
+        setCloudConfig(undefined)
+      }
+      // If canClose is false, dialogs will be shown and terminal will close itself
     } else {
       // If opening terminal, show type selector first
       setShowTerminalSelector(true)
     }
   }
 
-  // ✅ ADDED - Handle terminal type selection
+  // Handle terminal type selection
   const handleTerminalTypeSelect = (type: TerminalType, config?: CloudTerminalConfig) => {
     setTerminalType(type)
     setCloudConfig(config)
@@ -88,9 +98,16 @@ export default function MainPage() {
     setShowTerminal(true)
   }
 
-  // ✅ ADDED - Handle terminal selector cancel
+  // Handle terminal selector cancel
   const handleTerminalSelectorCancel = () => {
     setShowTerminalSelector(false)
+  }
+
+  // ✅ NEW: Handle terminal panel close (called by WebSocketTerminal)
+  const handleTerminalPanelClose = () => {
+    setShowTerminal(false)
+    setTerminalType(null)
+    setCloudConfig(undefined)
   }
 
   // Calculate terminal left position dynamically
@@ -129,7 +146,7 @@ export default function MainPage() {
         </div>
 
         <div className="flex items-center gap-3">
-          {/* Terminal Toggle Button - ✅ UPDATED onClick */}
+          {/* Terminal Toggle Button */}
           <button
             onClick={handleTerminalToggle}
             className={`
@@ -224,7 +241,7 @@ export default function MainPage() {
           </div>
         </div>
 
-        {/* ✅ ADDED - Terminal Type Selector Modal */}
+        {/* Terminal Type Selector Modal */}
         {showTerminalSelector && (
           <TerminalTypeSelector
             onSelect={handleTerminalTypeSelect}
@@ -242,15 +259,12 @@ export default function MainPage() {
             }}
           >
             <TerminalPage 
-              onClose={() => {
-                setShowTerminal(false)
-                setTerminalType(null) // ✅ ADDED
-                setCloudConfig(undefined) // ✅ ADDED
-              }}
+              ref={terminalRef}
+              onClose={handleTerminalPanelClose}
               agentPanelOpen={showAgentPanel}
               sidebarPanelOpen={showLeftPanel}
-              terminalType={terminalType} // ✅ ADDED
-              cloudConfig={cloudConfig} // ✅ ADDED
+              terminalType={terminalType}
+              cloudConfig={cloudConfig}
             />
           </div>
         )}
