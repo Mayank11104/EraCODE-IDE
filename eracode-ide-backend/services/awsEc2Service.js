@@ -2,10 +2,18 @@
 // AWS EC2 SERVICE - CLOUD TERMINAL MANAGEMENT
 // ============================================
 
-const { EC2Client, RunInstancesCommand, TerminateInstancesCommand, DescribeInstancesCommand } = require('@aws-sdk/client-ec2');
+const { 
+  EC2Client, 
+  RunInstancesCommand, 
+  TerminateInstancesCommand,
+  StopInstancesCommand,
+  StartInstancesCommand,
+  DescribeInstancesCommand 
+} = require('@aws-sdk/client-ec2');
 const { Client } = require('ssh2');
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 
 class AWSEc2Service {
   constructor() {
@@ -23,19 +31,38 @@ class AWSEc2Service {
     // ✅ Use WSL key path (has correct 400 permissions)
     this.keyPath = '/home/spydy/eracode-terminal-key.pem';
 
+    // ✅ Get username from env
+    this.username = process.env.AWS_USER_NAME || 'user';
+
     console.log('✅ AWS EC2 Service initialized');
     console.log('🔑 Using SSH key:', this.keyPath);
+    console.log('👤 Username:', this.username);
+  }
+
+  /**
+   * Generate unique instance name
+   * Format: {username}-{customName}-{shortId}
+   * Example: EraCODE-IDE-myproject-a3f9
+   */
+  generateInstanceName(customName) {
+    const shortId = crypto.randomBytes(2).toString('hex');
+    const safeName = customName.replace(/[^a-zA-Z0-9-]/g, '-').toLowerCase();
+    return `${this.username}-${safeName}-${shortId}`;
   }
 
   /**
    * Launch new EC2 instance for cloud terminal
    */
-  async launchInstance(sessionId) {
+  async launchInstance(sessionId, customInstanceName) {
     try {
-      console.log(`🚀 Launching EC2 instance for session: ${sessionId}`);
+      // Generate full instance name
+      const instanceName = this.generateInstanceName(customInstanceName);
+      
+      console.log(`🚀 Launching EC2 instance: ${instanceName}`);
+      console.log(`   Session ID: ${sessionId}`);
 
       const params = {
-        ImageId: process.env.AWS_AMI_ID || 'ami-0d377a1a81c42a1e0', // Ubuntu 22.04 Ireland
+        ImageId: process.env.AWS_AMI_ID || 'ami-0d377a1a81c42a1e0',
         InstanceType: process.env.AWS_INSTANCE_TYPE || 't3.micro',
         MinCount: 1,
         MaxCount: 1,
@@ -45,9 +72,11 @@ class AWSEc2Service {
           {
             ResourceType: 'instance',
             Tags: [
-              { Key: 'Name', Value: `eracode-terminal-${sessionId}` },
+              { Key: 'Name', Value: instanceName },
               { Key: 'Purpose', Value: 'cloud-terminal' },
               { Key: 'SessionId', Value: sessionId },
+              { Key: 'Username', Value: this.username },
+              { Key: 'CustomName', Value: customInstanceName }
             ],
           },
         ],
@@ -58,10 +87,13 @@ class AWSEc2Service {
       const instanceId = response.Instances[0].InstanceId;
 
       console.log(`✅ Instance launched: ${instanceId}`);
+      console.log(`   Name: ${instanceName}`);
 
       // Store session info
       this.cloudSessions.set(sessionId, {
         instanceId,
+        instanceName,
+        customName: customInstanceName,
         status: 'launching',
         createdAt: Date.now(),
         lastHeartbeat: Date.now(),
@@ -74,16 +106,145 @@ class AWSEc2Service {
       this.cloudSessions.get(sessionId).publicIp = publicIp;
       this.cloudSessions.get(sessionId).status = 'running';
 
-      console.log(`✅ Instance ready: ${instanceId} at ${publicIp}`);
+      console.log(`✅ Instance ready: ${instanceName} at ${publicIp}`);
 
       return {
         instanceId,
+        instanceName,  // ✅ This is the FULL name: EraCODE-IDE-abc-ccc1
         publicIp,
         region: process.env.AWS_REGION,
       };
     } catch (error) {
       console.error('❌ Failed to launch instance:', error.message);
       this.cloudSessions.delete(sessionId);
+      throw error;
+    }
+  }
+
+  /**
+   * Find instance by name (can be either full name or custom name)
+   * Will search by Name tag first, then by CustomName tag
+   */
+  async findInstanceByName(searchName) {
+    try {
+      console.log(`🔍 Searching for instance: ${searchName}`);
+
+      // ✅ TRY 1: Search by full Name tag (exact match)
+      let command = new DescribeInstancesCommand({
+        Filters: [
+          {
+            Name: 'tag:Name',
+            Values: [searchName]
+          },
+          {
+            Name: 'instance-state-name',
+            Values: ['running', 'stopped', 'stopping']
+          }
+        ]
+      });
+
+      let response = await this.ec2Client.send(command);
+      
+      // ✅ TRY 2: If not found, search by CustomName tag
+      if (!response.Reservations || response.Reservations.length === 0) {
+        console.log(`🔍 Not found by Name tag, trying CustomName tag...`);
+        
+        command = new DescribeInstancesCommand({
+          Filters: [
+            {
+              Name: 'tag:CustomName',
+              Values: [searchName]
+            },
+            {
+              Name: 'tag:Username',
+              Values: [this.username]
+            },
+            {
+              Name: 'instance-state-name',
+              Values: ['running', 'stopped', 'stopping']
+            }
+          ]
+        });
+
+        response = await this.ec2Client.send(command);
+      }
+
+      if (!response.Reservations || response.Reservations.length === 0) {
+        console.log(`❌ No instance found with name: ${searchName}`);
+        return null;
+      }
+
+      const instance = response.Reservations[0].Instances[0];
+      const instanceName = instance.Tags?.find(t => t.Key === 'Name')?.Value;
+      const customName = instance.Tags?.find(t => t.Key === 'CustomName')?.Value;
+      
+      console.log(`✅ Found instance: ${instance.InstanceId}`);
+      console.log(`   Full Name: ${instanceName}`);
+      console.log(`   Custom Name: ${customName}`);
+      console.log(`   State: ${instance.State.Name}`);
+
+      return {
+        instanceId: instance.InstanceId,
+        instanceName: instanceName,  // ✅ Full AWS name
+        customName: customName,      // ✅ User's custom name
+        state: instance.State.Name,
+        publicIp: instance.PublicIpAddress || null,
+      };
+    } catch (error) {
+      console.error('❌ Error finding instance:', error.message);
+      throw error;
+    }
+  }
+
+  /**
+   * Start stopped instance
+   */
+  async startInstance(instanceId) {
+    try {
+      console.log(`▶️ Starting instance: ${instanceId}`);
+
+      const command = new StartInstancesCommand({
+        InstanceIds: [instanceId],
+      });
+
+      await this.ec2Client.send(command);
+      console.log(`✅ Instance start command sent: ${instanceId}`);
+
+      // Wait for instance to be running and get public IP
+      const publicIp = await this.waitForInstance(instanceId);
+      
+      return { publicIp };
+    } catch (error) {
+      console.error('❌ Failed to start instance:', error.message);
+      throw error;
+    }
+  }
+
+  /**
+   * Stop instance (not terminate)
+   */
+  async stopInstance(sessionId) {
+    const session = this.cloudSessions.get(sessionId);
+    if (!session) {
+      console.log(`⚠️ No session found for ${sessionId}`);
+      return;
+    }
+
+    try {
+      console.log(`⏸️ Stopping instance: ${session.instanceId}`);
+      console.log(`   Name: ${session.instanceName}`);
+
+      const command = new StopInstancesCommand({
+        InstanceIds: [session.instanceId],
+      });
+
+      await this.ec2Client.send(command);
+      console.log(`✅ Instance ${session.instanceId} stopped`);
+      console.log(`💡 Use instance name "${session.instanceName}" to reconnect later`);
+
+      this.cloudSessions.delete(sessionId);
+    } catch (error) {
+      console.error('❌ Failed to stop instance:', error.message);
       throw error;
     }
   }
@@ -135,8 +296,6 @@ class AWSEc2Service {
       console.log(`🔌 Connecting to ${publicIp} via SSH...`);
 
       const conn = new Client();
-      
-      // ✅ Read key from WSL path using wsl command
       const { execSync } = require('child_process');
       const privateKey = execSync(`wsl cat ${this.keyPath}`).toString();
 
@@ -156,7 +315,6 @@ class AWSEc2Service {
           console.log(`⚠️ SSH connection failed: ${err.message}`);
 
           if (attempts < maxAttempts) {
-            // Retry after 5 seconds
             setTimeout(() => {
               conn.connect({
                 host: publicIp,
@@ -231,23 +389,18 @@ class AWSEc2Service {
       const { spawn } = require('child_process');
       const os = require('os');
 
-      // Convert Windows path for rsync (WSL format)
       let sourcePath = localPath;
       if (os.platform() === 'win32') {
-        // D:\CODE\streamlit dash → /mnt/d/CODE/streamlit dash
         sourcePath = localPath
           .replace(/\\/g, '/')
           .replace(/^([A-Z]):/, (match, drive) => `/mnt/${drive.toLowerCase()}`);
       }
 
-      // Ensure trailing slash
       if (!sourcePath.endsWith('/')) {
         sourcePath += '/';
       }
 
       const remotePath = `ubuntu@${publicIp}:/home/ubuntu/${projectName}/`;
-
-      // ✅ Use WSL key path directly (already has correct permissions)
       const wslKeyPath = this.keyPath;
 
       console.log('🔄 Rsync parameters:', {
@@ -256,52 +409,41 @@ class AWSEc2Service {
         wslKeyPath: wslKeyPath
       });
 
-      // rsync command arguments
       const rsyncArgs = [
-  '-avz',
-  '--progress',
-  '--delete',
-  // Common heavy folders
-  '--exclude', 'node_modules',
-  '--exclude', '.git',
-  '--exclude', 'dist',
-  '--exclude', 'build',
-  '--exclude', '.next',
-  '--exclude', 'coverage',
-  // Python virtual environments
-  '--exclude', 'env',
-  '--exclude', 'env/',
-  '--exclude', 'venv',
-  '--exclude', 'venv/',
-  '--exclude', '.venv',
-  '--exclude', '.venv/',
-  '--exclude', '__pycache__',
-  '--exclude', '*.pyc',
-  '--exclude', '.pytest_cache',
-  // Environment files
-  '--exclude', '.env',
-  '--exclude', '.env.local',
-  '--exclude', '.env.*.local',
-  // SSH keys
-  '--exclude', '*.pem',
-  '--exclude', '*.key',
-  // OS files
-  '--exclude', '.DS_Store',
-  '--exclude', 'Thumbs.db',
-  // IDE files
-  '--exclude', '.vscode',
-  '--exclude', '.idea',
-  '-e', `ssh -i "${wslKeyPath}" -o StrictHostKeyChecking=no`,
-  sourcePath,
-  remotePath
-];
-      // 🔥 USE WSL ON WINDOWS
+        '-avz',
+        '--progress',
+        '--delete',
+        '--exclude=node_modules',
+        '--exclude=.git',
+        '--exclude=dist',
+        '--exclude=build',
+        '--exclude=.next',
+        '--exclude=coverage',
+        '--exclude=env',
+        '--exclude=venv',
+        '--exclude=.venv',
+        '--exclude=__pycache__',
+        '--exclude=*.pyc',
+        '--exclude=.pytest_cache',
+        '--exclude=.env',
+        '--exclude=.env.local',
+        '--exclude=.env.*.local',
+        '--exclude=*.pem',
+        '--exclude=*.key',
+        '--exclude=.DS_Store',
+        '--exclude=Thumbs.db',
+        '--exclude=.vscode',
+        '--exclude=.idea',
+        '-e', `ssh -i "${wslKeyPath}" -o StrictHostKeyChecking=no`,
+        sourcePath,
+        remotePath
+      ];
+
       const isWindows = os.platform() === 'win32';
       const rsyncCommand = isWindows ? 'wsl' : 'rsync';
       const finalArgs = isWindows ? ['rsync', ...rsyncArgs] : rsyncArgs;
 
       console.log('🚀 Running rsync via:', rsyncCommand);
-      console.log('🔧 Command:', rsyncCommand, finalArgs.slice(0, 5).join(' '), '...');
 
       const rsync = spawn(rsyncCommand, finalArgs);
 
@@ -359,7 +501,7 @@ class AWSEc2Service {
   }
 
   /**
-   * Terminate EC2 instance
+   * Terminate EC2 instance (delete completely)
    */
   async terminateInstance(sessionId) {
     const session = this.cloudSessions.get(sessionId);
@@ -370,17 +512,19 @@ class AWSEc2Service {
 
     try {
       console.log(`🗑️ Terminating instance: ${session.instanceId}`);
+      console.log(`   Name: ${session.instanceName}`);
 
       const command = new TerminateInstancesCommand({
         InstanceIds: [session.instanceId],
       });
 
       await this.ec2Client.send(command);
-      console.log(`✅ Instance ${session.instanceId} terminated`);
+      console.log(`✅ Instance ${session.instanceId} terminated (deleted)`);
 
       this.cloudSessions.delete(sessionId);
     } catch (error) {
       console.error('❌ Failed to terminate instance:', error.message);
+      throw error;
     }
   }
 
@@ -408,7 +552,7 @@ class AWSEc2Service {
         console.log(`⏰ Session ${sessionId} idle for ${Math.round(idleTime / 60000)} minutes, terminating...`);
         await this.terminateInstance(sessionId);
       }
-    }
+    } 
   }
 }
 

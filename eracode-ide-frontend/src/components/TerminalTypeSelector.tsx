@@ -1,210 +1,298 @@
-import { useState } from 'react';
-import { Monitor, Cloud, X, Zap, AlertCircle, CheckCircle, MapPin } from 'lucide-react';
-// ✅ FIX: Remove 'type' keyword and import actual values
-import { 
-  TerminalType, 
-  CloudTerminalConfig, 
-  CLOUD_INSTANCE, 
-  AWS_REGIONS,
-  DEFAULT_AWS_REGION
-} from '../types/terminal.types';
+import { useState } from 'react'
+import { Monitor, Cloud, X, Zap, AlertCircle, CheckCircle, MapPin, Plus, History } from 'lucide-react'
+import { TerminalType, CloudTerminalConfig, AWS_REGIONS, DEFAULT_AWS_REGION } from '../types/terminal.types'
 
 interface TerminalTypeSelectorProps {
-  onSelect: (type: TerminalType, cloudConfig?: CloudTerminalConfig) => void;
-  onCancel: () => void;
+  onSelect: (type: TerminalType, cloudConfig?: CloudTerminalConfig) => void
+  onCancel: () => void
 }
 
 export default function TerminalTypeSelector({ onSelect, onCancel }: TerminalTypeSelectorProps) {
-  const [selectedType, setSelectedType] = useState<'local' | 'cloud' | null>(null);
-  const [cloudRegion, setCloudRegion] = useState(DEFAULT_AWS_REGION);
+  const [selectedType, setSelectedType] = useState<'local' | 'cloud' | null>(null)
+  const [cloudStep, setCloudStep] = useState<'choose' | 'new' | 'existing' | null>(null)
+  const [cloudRegion, setCloudRegion] = useState(DEFAULT_AWS_REGION)
+  const [instanceName, setInstanceName] = useState('')
+  const [shouldSync, setShouldSync] = useState(true)
 
   const handleLocalSelect = () => {
-    onSelect('local');
-  };
+    onSelect('local')
+  }
 
   const handleCloudSelect = () => {
-    setSelectedType('cloud');
-  };
+    setSelectedType('cloud')
+    setCloudStep('choose')
+  }
 
-  const handleCloudConfirm = () => {
+  const handleNewInstance = () => {
+    setCloudStep('new')
+  }
+
+  const handleExistingInstance = () => {
+    setCloudStep('existing')
+  }
+
+  const handleCreateNew = () => {
+    if (!instanceName.trim()) {
+      alert('Please enter an instance name')
+      return
+    }
+
     const config: CloudTerminalConfig = {
-      region: cloudRegion
-    };
-    onSelect('cloud', config);
-  };
+      region: cloudRegion,
+      mode: 'new',
+      customInstanceName: instanceName.trim()
+    }
+    onSelect('cloud', config)
+  }
+
+  const handleConnectExisting = () => {
+    if (!instanceName.trim()) {
+      alert('Please enter an instance name')
+      return
+    }
+
+    const config: CloudTerminalConfig = {
+      region: cloudRegion,
+      mode: 'existing',
+      customInstanceName: instanceName.trim(),
+      shouldSync
+    }
+    onSelect('cloud', config)
+  }
 
   const handleBack = () => {
-    setSelectedType(null);
-  };
+    if (cloudStep === 'new' || cloudStep === 'existing') {
+      setCloudStep('choose')
+      setInstanceName('')
+    } else {
+      setSelectedType(null)
+      setCloudStep(null)
+    }
+  }
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] animate-in fade-in duration-200">
-      <div className="bg-[#1e1e1e] border border-[#2d2d30] rounded-lg shadow-2xl w-[520px] overflow-hidden">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-[#252526] border border-[#3e3e42] rounded-lg shadow-2xl max-w-2xl w-full mx-4">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-[#2d2d30]">
-          <h2 className="text-lg font-semibold text-white flex items-center gap-2">
-            <Zap size={20} className="text-[#007acc]" />
-            Choose Terminal Type
+        <div className="flex items-center justify-between p-4 border-b border-[#3e3e42]">
+          <h2 className="text-lg font-semibold text-white">
+            {cloudStep === 'new' && '🆕 Create New Instance'}
+            {cloudStep === 'existing' && '🔄 Connect to Existing Instance'}
+            {cloudStep === 'choose' && '☁️ Cloud Terminal'}
+            {!selectedType && '🚀 Select Terminal Type'}
           </h2>
           <button
             onClick={onCancel}
-            className="p-1 text-[#969696] hover:text-white hover:bg-[#2d2d30] rounded transition-colors"
+            className="text-gray-400 hover:text-white transition-colors"
           >
-            <X size={18} />
+            <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Content */}
+        {/* Body */}
         <div className="p-6">
-          {/* Initial Selection */}
+          {/* Initial Type Selection */}
           {!selectedType && (
-            <div className="space-y-3">
-              {/* Local Terminal Card */}
+            <div className="grid grid-cols-2 gap-4">
+              {/* Local Terminal */}
               <button
                 onClick={handleLocalSelect}
-                className="w-full p-5 bg-[#252526] hover:bg-[#2d2d30] border-2 border-transparent hover:border-[#007acc] rounded-lg transition-all group text-left"
+                className="group p-6 bg-[#1e1e1e] border-2 border-[#3e3e42] rounded-lg hover:border-blue-500 transition-all"
               >
-                <div className="flex items-start gap-4">
-                  <div className="p-3 bg-[#1e1e1e] rounded-lg group-hover:bg-[#007acc] transition-colors">
-                    <Monitor size={24} className="text-[#007acc] group-hover:text-white" />
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="text-base font-semibold text-white mb-1">💻 Local Terminal</h3>
-                    <p className="text-sm text-[#969696] mb-3">
-                      Run commands on your computer
+                <div className="flex flex-col items-center gap-4">
+                  <Monitor className="w-12 h-12 text-blue-500" />
+                  <div className="text-center">
+                    <h3 className="text-lg font-semibold text-white mb-2">💻 Local Terminal</h3>
+                    <p className="text-sm text-gray-400">
+                      Run commands on your local machine
                     </p>
-                    <div className="flex flex-wrap gap-2 text-xs">
-                      <span className="px-2 py-1 bg-[#1e1e1e] text-[#4ec9b0] rounded flex items-center gap-1">
-                        <CheckCircle size={12} />
-                        Instant
-                      </span>
-                      <span className="px-2 py-1 bg-[#1e1e1e] text-[#4ec9b0] rounded flex items-center gap-1">
-                        <CheckCircle size={12} />
-                        No cost
-                      </span>
-                      <span className="px-2 py-1 bg-[#1e1e1e] text-[#4ec9b0] rounded flex items-center gap-1">
-                        <CheckCircle size={12} />
-                        Local files
-                      </span>
-                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-green-400">
+                    <CheckCircle className="w-4 h-4" />
+                    <span>Instant</span>
                   </div>
                 </div>
               </button>
 
-              {/* Cloud Terminal Card */}
+              {/* Cloud Terminal */}
               <button
                 onClick={handleCloudSelect}
-                className="w-full p-5 bg-[#252526] hover:bg-[#2d2d30] border-2 border-transparent hover:border-[#007acc] rounded-lg transition-all group text-left"
+                className="group p-6 bg-[#1e1e1e] border-2 border-[#3e3e42] rounded-lg hover:border-purple-500 transition-all"
               >
-                <div className="flex items-start gap-4">
-                  <div className="p-3 bg-[#1e1e1e] rounded-lg group-hover:bg-[#007acc] transition-colors">
-                    <Cloud size={24} className="text-[#007acc] group-hover:text-white" />
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="text-base font-semibold text-white mb-1">☁️ Cloud Terminal</h3>
-                    <p className="text-sm text-[#969696] mb-3">
-                      Powered by AWS ({CLOUD_INSTANCE.type})
+                <div className="flex flex-col items-center gap-4">
+                  <Cloud className="w-12 h-12 text-purple-500" />
+                  <div className="text-center">
+                    <h3 className="text-lg font-semibold text-white mb-2">☁️ Cloud Terminal</h3>
+                    <p className="text-sm text-gray-400">
+                      AWS EC2 instance with your project
                     </p>
-                    <div className="flex flex-wrap gap-2 text-xs">
-                      <span className="px-2 py-1 bg-[#1e1e1e] text-[#ce9178] rounded">
-                        {CLOUD_INSTANCE.vCPU} vCPU
-                      </span>
-                      <span className="px-2 py-1 bg-[#1e1e1e] text-[#ce9178] rounded">
-                        {CLOUD_INSTANCE.ram} RAM
-                      </span>
-                      <span className="px-2 py-1 bg-[#1e1e1e] text-[#ce9178] rounded">
-                        🇮🇪 Ireland
-                      </span>
-                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-yellow-400">
+                    <Zap className="w-4 h-4" />
+                    <span>~60 seconds</span>
                   </div>
                 </div>
               </button>
             </div>
           )}
 
-          {/* Cloud Configuration */}
-          {selectedType === 'cloud' && (
-            <div className="space-y-5">
-              <button
-                onClick={handleBack}
-                className="text-sm text-[#007acc] hover:underline"
-              >
-                ← Back
-              </button>
+          {/* Cloud: Choose New or Existing */}
+          {selectedType === 'cloud' && cloudStep === 'choose' && (
+            <div className="space-y-4">
+              <p className="text-gray-300 text-center mb-6">
+                Do you have an existing cloud instance?
+              </p>
 
-              {/* Instance Info Card */}
-              <div className="p-4 bg-[#252526] rounded-lg border border-[#2d2d30]">
-                <div className="flex items-start gap-3 mb-3">
-                  <Cloud size={18} className="text-[#007acc] mt-0.5" />
-                  <div className="flex-1">
-                    <div className="text-sm font-medium text-white mb-1">
-                      AWS {CLOUD_INSTANCE.type} Instance
-                    </div>
-                    <div className="text-xs text-[#969696]">
-                      {CLOUD_INSTANCE.description}
-                    </div>
+              <div className="grid grid-cols-2 gap-4">
+                {/* New Instance */}
+                <button
+                  onClick={handleNewInstance}
+                  className="p-6 bg-[#1e1e1e] border-2 border-[#3e3e42] rounded-lg hover:border-green-500 transition-all"
+                >
+                  <div className="flex flex-col items-center gap-3">
+                    <Plus className="w-10 h-10 text-green-500" />
+                    <h3 className="text-lg font-semibold text-white">No, Create New</h3>
+                    <p className="text-sm text-gray-400 text-center">
+                      Launch a fresh EC2 instance
+                    </p>
                   </div>
-                </div>
-                <div className="grid grid-cols-2 gap-2 text-xs">
-                  <div className="px-2 py-1.5 bg-[#1e1e1e] rounded">
-                    <div className="text-[#969696]">CPU</div>
-                    <div className="text-white font-medium">{CLOUD_INSTANCE.vCPU} vCPU</div>
+                </button>
+
+                {/* Existing Instance */}
+                <button
+                  onClick={handleExistingInstance}
+                  className="p-6 bg-[#1e1e1e] border-2 border-[#3e3e42] rounded-lg hover:border-blue-500 transition-all"
+                >
+                  <div className="flex flex-col items-center gap-3">
+                    <History className="w-10 h-10 text-blue-500" />
+                    <h3 className="text-lg font-semibold text-white">Yes, Reconnect</h3>
+                    <p className="text-sm text-gray-400 text-center">
+                      Connect to existing instance
+                    </p>
                   </div>
-                  <div className="px-2 py-1.5 bg-[#1e1e1e] rounded">
-                    <div className="text-[#969696]">RAM</div>
-                    <div className="text-white font-medium">{CLOUD_INSTANCE.ram}</div>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Cloud: New Instance Form */}
+          {selectedType === 'cloud' && cloudStep === 'new' && (
+            <div className="space-y-4">
+              <div className="bg-[#1e1e1e] p-4 rounded-lg border border-blue-500/30">
+                <div className="flex items-start gap-3">
+                  <AlertCircle className="w-5 h-5 text-blue-400 mt-0.5" />
+                  <div className="text-sm text-gray-300">
+                    <p className="font-semibold text-blue-400 mb-1">Instance Name</p>
+                    <p>Choose a unique name to identify this instance later.</p>
+                    <p className="text-gray-400 mt-1">Example: my-project, test-env, nodejs-app</p>
                   </div>
                 </div>
               </div>
 
-              {/* Region Selection */}
               <div>
-                <label className="block text-sm font-medium text-[#cccccc] mb-2 flex items-center gap-2">
-                  <MapPin size={14} />
-                  Select Region
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Instance Name *
+                </label>
+                <input
+                  type="text"
+                  value={instanceName}
+                  onChange={(e) => setInstanceName(e.target.value)}
+                  placeholder="e.g., my-project"
+                  className="w-full px-4 py-2 bg-[#1e1e1e] border border-[#3e3e42] rounded text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  <MapPin className="w-4 h-4 inline mr-1" />
+                  AWS Region
                 </label>
                 <select
                   value={cloudRegion}
                   onChange={(e) => setCloudRegion(e.target.value)}
-                  className="w-full px-3 py-2.5 bg-[#252526] border border-[#2d2d30] text-white rounded-lg focus:outline-none focus:border-[#007acc] text-sm"
+                  className="w-full px-4 py-2 bg-[#1e1e1e] border border-[#3e3e42] rounded text-white focus:outline-none focus:border-blue-500"
                 >
-                  {AWS_REGIONS.map((region) => (
-                    <option key={region.value} value={region.value}>
-                      {region.flag} {region.label}
+                  {AWS_REGIONS.map(region => (
+                    <option key={region.id} value={region.id}>
+                      {region.name} ({region.id})
                     </option>
                   ))}
                 </select>
-                <p className="text-xs text-[#969696] mt-1.5">
+                <p className="text-xs text-gray-400 mt-1">
                   💡 Europe (Ireland) is pre-selected for optimal performance
                 </p>
               </div>
 
-              {/* Info Alert */}
-              <div className="p-3 bg-[#2d2d30] border border-[#3e3e42] rounded-lg">
-                <div className="flex items-start gap-2">
-                  <AlertCircle size={16} className="text-[#007acc] mt-0.5 flex-shrink-0" />
-                  <div className="text-xs space-y-1 text-[#cccccc]">
-                    <div>• Startup time: {CLOUD_INSTANCE.estimatedStartup}</div>
-                    <div>• Auto-terminates when you close terminal</div>
-                    <div>• Usage tracked for billing (coming soon)</div>
+              <div className="flex justify-between pt-4">
+                <button
+                  onClick={handleBack}
+                  className="px-4 py-2 text-gray-400 hover:text-white transition-colors"
+                >
+                  ← Back
+                </button>
+                <button
+                  onClick={handleCreateNew}
+                  className="px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded transition-colors"
+                >
+                  🚀 Create Instance
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Cloud: Existing Instance Form */}
+          {selectedType === 'cloud' && cloudStep === 'existing' && (
+            <div className="space-y-4">
+              <div className="bg-[#1e1e1e] p-4 rounded-lg border border-yellow-500/30">
+                <div className="flex items-start gap-3">
+                  <AlertCircle className="w-5 h-5 text-yellow-400 mt-0.5" />
+                  <div className="text-sm text-gray-300">
+                    <p className="font-semibold text-yellow-400 mb-1">Reconnect to Instance</p>
+                    <p>Enter the exact name you used when creating the instance.</p>
                   </div>
                 </div>
               </div>
 
-              {/* Action Buttons */}
-              <div className="flex gap-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Instance Name *
+                </label>
+                <input
+                  type="text"
+                  value={instanceName}
+                  onChange={(e) => setInstanceName(e.target.value)}
+                  placeholder="e.g., my-project"
+                  className="w-full px-4 py-2 bg-[#1e1e1e] border border-[#3e3e42] rounded text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
+                />
+              </div>
+
+              <div className="bg-[#1e1e1e] p-4 rounded-lg border border-[#3e3e42]">
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={shouldSync}
+                    onChange={(e) => setShouldSync(e.target.checked)}
+                    className="w-4 h-4 text-blue-500"
+                  />
+                  <div>
+                    <p className="text-sm font-medium text-white">Sync latest changes</p>
+                    <p className="text-xs text-gray-400">Upload local files to cloud instance</p>
+                  </div>
+                </label>
+              </div>
+
+              <div className="flex justify-between pt-4">
                 <button
-                  onClick={onCancel}
-                  className="flex-1 px-4 py-2.5 bg-[#2d2d30] hover:bg-[#3e3e42] text-white rounded-lg transition-colors text-sm font-medium"
+                  onClick={handleBack}
+                  className="px-4 py-2 text-gray-400 hover:text-white transition-colors"
                 >
-                  Cancel
+                  ← Back
                 </button>
                 <button
-                  onClick={handleCloudConfirm}
-                  className="flex-1 px-4 py-2.5 bg-[#007acc] hover:bg-[#005a9e] text-white rounded-lg transition-colors text-sm font-medium flex items-center justify-center gap-2"
+                  onClick={handleConnectExisting}
+                  className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors"
                 >
-                  <Cloud size={16} />
-                  Launch
+                  🔄 Connect
                 </button>
               </div>
             </div>
@@ -212,5 +300,5 @@ export default function TerminalTypeSelector({ onSelect, onCancel }: TerminalTyp
         </div>
       </div>
     </div>
-  );
+  )
 }
