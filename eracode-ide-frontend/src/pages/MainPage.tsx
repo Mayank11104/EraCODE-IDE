@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Bot, Terminal as TerminalIcon } from 'lucide-react'
 import Sidebar from '../components/Sidebar'
 import AgentPanel from '../components/AgentPanel'
-import WebSocketTerminal from '../components/WebSocketTerminal'
+import TerminalTypeSelector from '../components/TerminalTypeSelector'
 
 // Import LEFT panels
 import ExplorerPanel from '../components/panels/ExplorerPanel'
@@ -17,16 +17,19 @@ import APITesterPanel from '../components/panels/APITesterPanel'
 import DatabasePanel from '../components/panels/DatabasePanel'
 import VisualizerPanel from '../components/panels/VisualizerPanel'
 
-
 // Import CENTER pages
 import WelcomePage from './WelcomePage'
 import EditorPage from './EditorPage'
 import TerminalPage from './TerminalPage'
 
-
 // Import store
 import { useEditorStore } from '../stores/editorStore'
 
+// Import types
+import { TerminalType, CloudTerminalConfig } from '../types/terminal.types'
+
+// ✅ Import handle type
+import { WebSocketTerminalHandle } from '../components/WebSocketTerminal'
 
 export default function MainPage() {
   // Store
@@ -41,13 +44,18 @@ export default function MainPage() {
   
   // Terminal state
   const [showTerminal, setShowTerminal] = useState(false)
+  const [showTerminalSelector, setShowTerminalSelector] = useState(false)
+  const [terminalType, setTerminalType] = useState<TerminalType | null>(null)
+  const [cloudConfig, setCloudConfig] = useState<CloudTerminalConfig>()
+  
+  // ✅ NEW: Terminal ref for handling close
+  const terminalRef = useRef<WebSocketTerminalHandle>(null)
   
   // Center page state - starts as welcome, switches to editor once a file is opened
   const [showEditor, setShowEditor] = useState(false)
 
-  // ✅ NEW: Track sidebar hover state
+  // Track sidebar hover state
   const [isSidebarHovered, setIsSidebarHovered] = useState(false)
-
 
   // Auto-switch to Editor when a file is opened (PERMANENT for session)
   useEffect(() => {
@@ -55,7 +63,6 @@ export default function MainPage() {
       setShowEditor(true)
     }
   }, [openFiles.length, showEditor])
-
 
   const handleSidebarClick = (panelId: string) => {
     if (activeLeftPanel === panelId) {
@@ -66,18 +73,53 @@ export default function MainPage() {
     }
   }
 
-  // ✅ NEW: Calculate terminal left position dynamically
+  // ✅ UPDATED - Handle terminal toggle with cloud terminal check
+  const handleTerminalToggle = () => {
+    if (showTerminal) {
+      // Try to close - terminal will show dialogs if needed
+      const canClose = terminalRef.current?.requestClose()
+      if (canClose) {
+        setShowTerminal(false)
+        setTerminalType(null)
+        setCloudConfig(undefined)
+      }
+      // If canClose is false, dialogs will be shown and terminal will close itself
+    } else {
+      // If opening terminal, show type selector first
+      setShowTerminalSelector(true)
+    }
+  }
+
+  // Handle terminal type selection
+  const handleTerminalTypeSelect = (type: TerminalType, config?: CloudTerminalConfig) => {
+    setTerminalType(type)
+    setCloudConfig(config)
+    setShowTerminalSelector(false)
+    setShowTerminal(true)
+  }
+
+  // Handle terminal selector cancel
+  const handleTerminalSelectorCancel = () => {
+    setShowTerminalSelector(false)
+  }
+
+  // ✅ NEW: Handle terminal panel close (called by WebSocketTerminal)
+  const handleTerminalPanelClose = () => {
+    setShowTerminal(false)
+    setTerminalType(null)
+    setCloudConfig(undefined)
+  }
+
+  // Calculate terminal left position dynamically
   const getTerminalLeftPosition = () => {
     const sidebarWidth = isSidebarHovered ? 145 : 48
     const panelWidth = showLeftPanel ? 250 : 0
     return sidebarWidth + panelWidth
   }
 
-
   // Render left panel based on active selection
   const renderLeftPanel = () => {
     if (!showLeftPanel) return null
-
 
     switch (activeLeftPanel) {
       case 'explorer': return <ExplorerPanel />
@@ -95,7 +137,6 @@ export default function MainPage() {
     }
   }
 
-
   return (
     <div className="h-screen w-full flex flex-col bg-dark-surface text-text-primary overflow-hidden">
       {/* Top Bar with Terminal & AI Agent Buttons */}
@@ -104,11 +145,10 @@ export default function MainPage() {
           <h1 className="text-lg font-bold text-text-primary">EraCODE IDE</h1>
         </div>
 
-
         <div className="flex items-center gap-3">
           {/* Terminal Toggle Button */}
           <button
-            onClick={() => setShowTerminal(!showTerminal)}
+            onClick={handleTerminalToggle}
             className={`
               flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all
               ${showTerminal
@@ -133,7 +173,6 @@ export default function MainPage() {
               Ctrl+`
             </kbd>
           </button>
-
 
           {/* AI Agent Toggle Button */}
           <button
@@ -165,16 +204,14 @@ export default function MainPage() {
         </div>
       </div>
 
-
       {/* Main Content Area */}
       <div className="flex flex-1 overflow-hidden relative">
-        {/* Left: Sidebar (Always visible - 48px) - ✅ Pass hover callback */}
+        {/* Left: Sidebar (Always visible - 48px) */}
         <Sidebar 
           onItemClick={handleSidebarClick}
           activeItem={showLeftPanel ? activeLeftPanel : ''}
           onHoverChange={setIsSidebarHovered}
         />
-
 
         {/* Everything else to the right of sidebar */}
         <div className="flex flex-1 overflow-hidden">
@@ -188,12 +225,10 @@ export default function MainPage() {
             {renderLeftPanel()}
           </div>
 
-
           {/* Center: Welcome OR Editor */}
           <div className="flex-1 flex flex-col min-w-0">
             {showEditor ? <EditorPage /> : <WelcomePage />}
           </div>
-
 
           {/* Right: Agent Panel */}
           <div 
@@ -206,8 +241,15 @@ export default function MainPage() {
           </div>
         </div>
 
+        {/* Terminal Type Selector Modal */}
+        {showTerminalSelector && (
+          <TerminalTypeSelector
+            onSelect={handleTerminalTypeSelect}
+            onCancel={handleTerminalSelectorCancel}
+          />
+        )}
 
-        {/* Bottom Section: Terminal - ✅ DYNAMIC POSITIONING */}
+        {/* Bottom Section: Terminal - DYNAMIC POSITIONING */}
         {showTerminal && (
           <div 
             className="absolute bottom-0 right-0 z-50 transition-all duration-200"
@@ -217,15 +259,16 @@ export default function MainPage() {
             }}
           >
             <TerminalPage 
-              onClose={() => setShowTerminal(false)}
+              ref={terminalRef}
+              onClose={handleTerminalPanelClose}
               agentPanelOpen={showAgentPanel}
               sidebarPanelOpen={showLeftPanel}
-              
+              terminalType={terminalType}
+              cloudConfig={cloudConfig}
             />
           </div>
         )}
       </div>
-
 
     </div>
   )

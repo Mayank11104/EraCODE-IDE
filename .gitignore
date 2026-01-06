@@ -1,5 +1,6 @@
 chats
 chats\chat1.md
+chats\chat2.md
 # Dependencies
 node_modules/
 npm-debug.log*
@@ -10,7 +11,8 @@ yarn-error.log*
 .env
 .env.local
 .env.production
-
+eracode-ide-backend\.env
+scriptforvid.txt
 # OS files
 .DS_Store
 Thumbs.db
