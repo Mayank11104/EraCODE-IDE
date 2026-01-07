@@ -4,6 +4,7 @@ import Sidebar from '../components/Sidebar'
 import AgentPanel from '../components/AgentPanel'
 import TerminalTypeSelector from '../components/TerminalTypeSelector'
 
+
 // Import LEFT panels
 import ExplorerPanel from '../components/panels/ExplorerPanel'
 import SearchPanel from '../components/panels/SearchPanel'
@@ -17,19 +18,24 @@ import APITesterPanel from '../components/panels/APITesterPanel'
 import DatabasePanel from '../components/panels/DatabasePanel'
 import VisualizerPanel from '../components/panels/VisualizerPanel'
 
+
 // Import CENTER pages
 import WelcomePage from './WelcomePage'
 import EditorPage from './EditorPage'
 import TerminalPage from './TerminalPage'
 
+
 // Import store
 import { useEditorStore } from '../stores/editorStore'
+
 
 // Import types
 import { TerminalType, CloudTerminalConfig } from '../types/terminal.types'
 
+
 // ✅ Import handle type
 import { WebSocketTerminalHandle } from '../components/WebSocketTerminal'
+
 
 export default function MainPage() {
   // Store
@@ -38,6 +44,10 @@ export default function MainPage() {
   // Left panel state
   const [activeLeftPanel, setActiveLeftPanel] = useState('explorer')
   const [showLeftPanel, setShowLeftPanel] = useState(true)
+  
+  // ✅ API Tester width state - Default 455px, Range 455-800px
+  const [apiPanelWidth, setApiPanelWidth] = useState(455)
+  const [isResizingApi, setIsResizingApi] = useState(false)
   
   // Right agent panel state
   const [showAgentPanel, setShowAgentPanel] = useState(false)
@@ -48,14 +58,16 @@ export default function MainPage() {
   const [terminalType, setTerminalType] = useState<TerminalType | null>(null)
   const [cloudConfig, setCloudConfig] = useState<CloudTerminalConfig>()
   
-  // ✅ NEW: Terminal ref for handling close
+  // ✅ Terminal ref for handling close
   const terminalRef = useRef<WebSocketTerminalHandle>(null)
   
   // Center page state - starts as welcome, switches to editor once a file is opened
   const [showEditor, setShowEditor] = useState(false)
 
+
   // Track sidebar hover state
   const [isSidebarHovered, setIsSidebarHovered] = useState(false)
+
 
   // Auto-switch to Editor when a file is opened (PERMANENT for session)
   useEffect(() => {
@@ -63,6 +75,42 @@ export default function MainPage() {
       setShowEditor(true)
     }
   }, [openFiles.length, showEditor])
+
+
+  // ✅ Handle API panel resize - Min 455px, Max 800px
+  const handleApiResizeStart = (e: React.MouseEvent) => {
+    setIsResizingApi(true)
+    e.preventDefault()
+  }
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isResizingApi) return
+      
+      const sidebarWidth = isSidebarHovered ? 145 : 48
+      const newWidth = e.clientX - sidebarWidth
+      
+      // ✅ Min: 455px, Max: 800px
+      const clampedWidth = Math.max(455, Math.min(newWidth, 800))
+      
+      setApiPanelWidth(clampedWidth)
+    }
+    
+    const handleMouseUp = () => {
+      setIsResizingApi(false)
+    }
+    
+    if (isResizingApi) {
+      document.addEventListener('mousemove', handleMouseMove)
+      document.addEventListener('mouseup', handleMouseUp)
+      
+      return () => {
+        document.removeEventListener('mousemove', handleMouseMove)
+        document.removeEventListener('mouseup', handleMouseUp)
+      }
+    }
+  }, [isResizingApi, isSidebarHovered])
+
 
   const handleSidebarClick = (panelId: string) => {
     if (activeLeftPanel === panelId) {
@@ -73,22 +121,21 @@ export default function MainPage() {
     }
   }
 
-  // ✅ UPDATED - Handle terminal toggle with cloud terminal check
+
+  // ✅ Handle terminal toggle with cloud terminal check
   const handleTerminalToggle = () => {
     if (showTerminal) {
-      // Try to close - terminal will show dialogs if needed
       const canClose = terminalRef.current?.requestClose()
       if (canClose) {
         setShowTerminal(false)
         setTerminalType(null)
         setCloudConfig(undefined)
       }
-      // If canClose is false, dialogs will be shown and terminal will close itself
     } else {
-      // If opening terminal, show type selector first
       setShowTerminalSelector(true)
     }
   }
+
 
   // Handle terminal type selection
   const handleTerminalTypeSelect = (type: TerminalType, config?: CloudTerminalConfig) => {
@@ -98,44 +145,88 @@ export default function MainPage() {
     setShowTerminal(true)
   }
 
+
   // Handle terminal selector cancel
   const handleTerminalSelectorCancel = () => {
     setShowTerminalSelector(false)
   }
 
-  // ✅ NEW: Handle terminal panel close (called by WebSocketTerminal)
+
+  // ✅ Handle terminal panel close
   const handleTerminalPanelClose = () => {
     setShowTerminal(false)
     setTerminalType(null)
     setCloudConfig(undefined)
   }
 
-  // Calculate terminal left position dynamically
+
+  // ✅ Calculate terminal left position - Uses API panel width ONLY when API is active
   const getTerminalLeftPosition = () => {
     const sidebarWidth = isSidebarHovered ? 145 : 48
-    const panelWidth = showLeftPanel ? 250 : 0
+    if (!showLeftPanel) return sidebarWidth
+    
+    // ✅ ONLY use dynamic width for API panel, fixed 250px for others
+    const panelWidth = activeLeftPanel === 'api' ? apiPanelWidth : 250
     return sidebarWidth + panelWidth
   }
 
-  // Render left panel based on active selection
+
+  // ✅ Render left panel - ONLY API panel gets resize handle
   const renderLeftPanel = () => {
     if (!showLeftPanel) return null
 
-    switch (activeLeftPanel) {
-      case 'explorer': return <ExplorerPanel />
-      case 'search': return <SearchPanel />
-      case 'git': return <GitPanel />
-      case 'debug': return <DebugPanel />
-      case 'cicd': return <CICDPanel />
-      case 'docker': return <DockerPanel />
-      case 'deploy': return <DeployPanel />
-      case 'monitoring': return <MonitoringPanel />
-      case 'api': return <APITesterPanel />
-      case 'database': return <DatabasePanel />
-      case 'visualizer': return <VisualizerPanel />
-      default: return <ExplorerPanel />
-    }
+    const panelContent = (() => {
+      switch (activeLeftPanel) {
+        case 'explorer': return <ExplorerPanel />
+        case 'search': return <SearchPanel />
+        case 'git': return <GitPanel />
+        case 'debug': return <DebugPanel />
+        case 'cicd': return <CICDPanel />
+        case 'docker': return <DockerPanel />
+        case 'deploy': return <DeployPanel />
+        case 'monitoring': return <MonitoringPanel />
+        case 'api': return <APITesterPanel />
+        case 'database': return <DatabasePanel />
+        case 'visualizer': return <VisualizerPanel />
+        default: return <ExplorerPanel />
+      }
+    })()
+
+    // ✅ ONLY API panel is resizable
+    const isApiPanel = activeLeftPanel === 'api'
+    const width = isApiPanel ? apiPanelWidth : 250
+
+    return (
+      <div 
+        className="h-full bg-dark-surface border-r border-dark-border relative shrink-0"
+        style={{ width: `${width}px` }}
+      >
+        {panelContent}
+        
+        {/* ✅ Resize handle ONLY for API panel */}
+        {isApiPanel && (
+          <div
+            onMouseDown={handleApiResizeStart}
+            className={`
+              absolute top-0 right-0 w-1 h-full cursor-col-resize transition-all z-10
+              ${isResizingApi 
+                ? 'bg-blue-500 w-1' 
+                : 'hover:bg-blue-500/50'
+              }
+            `}
+            title="Drag to resize API Tester panel"
+          >
+            {isResizingApi && (
+              <div className="absolute top-2 -right-16 bg-dark-bg border border-blue-500 rounded px-2 py-1 text-xs text-blue-400 shadow-lg pointer-events-none">
+                {apiPanelWidth}px
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    )
   }
+
 
   return (
     <div className="h-screen w-full flex flex-col bg-dark-surface text-text-primary overflow-hidden">
@@ -144,6 +235,7 @@ export default function MainPage() {
         <div className="flex items-center gap-3">
           <h1 className="text-lg font-bold text-text-primary">EraCODE IDE</h1>
         </div>
+
 
         <div className="flex items-center gap-3">
           {/* Terminal Toggle Button */}
@@ -173,6 +265,7 @@ export default function MainPage() {
               Ctrl+`
             </kbd>
           </button>
+
 
           {/* AI Agent Toggle Button */}
           <button
@@ -204,6 +297,7 @@ export default function MainPage() {
         </div>
       </div>
 
+
       {/* Main Content Area */}
       <div className="flex flex-1 overflow-hidden relative">
         {/* Left: Sidebar (Always visible - 48px) */}
@@ -213,22 +307,18 @@ export default function MainPage() {
           onHoverChange={setIsSidebarHovered}
         />
 
+
         {/* Everything else to the right of sidebar */}
         <div className="flex flex-1 overflow-hidden">
-          {/* Left Panel */}
-          <div 
-            className={`
-              transition-all duration-300 ease-in-out overflow-hidden
-              ${showLeftPanel ? 'opacity-100' : 'w-0 opacity-0'}
-            `}
-          >
-            {renderLeftPanel()}
-          </div>
+          {/* ✅ Left Panel - Only API is resizable */}
+          {renderLeftPanel()}
+
 
           {/* Center: Welcome OR Editor */}
           <div className="flex-1 flex flex-col min-w-0">
             {showEditor ? <EditorPage /> : <WelcomePage />}
           </div>
+
 
           {/* Right: Agent Panel */}
           <div 
@@ -241,6 +331,7 @@ export default function MainPage() {
           </div>
         </div>
 
+
         {/* Terminal Type Selector Modal */}
         {showTerminalSelector && (
           <TerminalTypeSelector
@@ -248,6 +339,7 @@ export default function MainPage() {
             onCancel={handleTerminalSelectorCancel}
           />
         )}
+
 
         {/* Bottom Section: Terminal - DYNAMIC POSITIONING */}
         {showTerminal && (
@@ -269,6 +361,7 @@ export default function MainPage() {
           </div>
         )}
       </div>
+
 
     </div>
   )
