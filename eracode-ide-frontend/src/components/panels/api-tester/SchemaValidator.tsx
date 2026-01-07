@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { FileJson, CheckCircle, XCircle, AlertCircle } from 'lucide-react'
+import { FileJson, CheckCircle, XCircle, AlertCircle, Shield, Code, Database } from 'lucide-react'
 
 interface ValidationError {
   path: string
@@ -119,33 +119,43 @@ export default function SchemaValidator() {
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full" style={{backgroundColor: '#1E1E1E'}}>
       {/* Header */}
-      <div className="p-4 border-b border-dark-border shrink-0">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-semibold text-white">JSON Schema Validator</h3>
+      <div className="p-6 border-b border-white/10 shrink-0 bg-gradient-to-r from-[#252525] to-[#2A2A2A]">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-violet-500/20 rounded-lg ring-1 ring-violet-400/30">
+              <Shield className="w-5 h-5 text-violet-400" />
+            </div>
+            <h3 className="text-base font-bold bg-gradient-to-r from-cyan-300 via-violet-300 to-fuchsia-300 bg-clip-text text-transparent">
+              JSON Schema Validator
+            </h3>
+          </div>
           <button
             onClick={validateSchema}
-            className="bg-purple-600 hover:bg-purple-700 text-white rounded px-4 py-2 text-sm font-medium flex items-center gap-2"
+            className="bg-gradient-to-r from-violet-500 via-fuchsia-500 to-pink-500 hover:from-violet-600 hover:via-fuchsia-600 hover:to-pink-600 text-white rounded-xl px-5 py-2.5 text-sm font-bold flex items-center gap-2 shadow-lg shadow-violet-500/30 hover:shadow-violet-500/50 transition-all hover:scale-[1.02] active:scale-[0.98] relative overflow-hidden group"
           >
-            <FileJson className="w-4 h-4" />
-            Validate
+            <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000"></div>
+            <FileJson className="w-4 h-4 relative z-10" />
+            <span className="relative z-10">Validate</span>
           </button>
         </div>
 
         {isValid !== null && (
-          <div className={`flex items-center gap-2 p-3 rounded ${
-            isValid ? 'bg-green-500/10 border border-green-500/30 text-green-400' : 'bg-red-500/10 border border-red-500/30 text-red-400'
+          <div className={`flex items-center gap-3 p-4 rounded-xl border shadow-lg ${
+            isValid 
+              ? 'bg-emerald-500/20 border-emerald-500/50 shadow-emerald-500/20' 
+              : 'bg-red-500/20 border-red-500/50 shadow-red-500/20'
           }`}>
             {isValid ? (
               <>
-                <CheckCircle className="w-4 h-4" />
-                <span className="text-sm font-medium">✅ Data is valid!</span>
+                <CheckCircle className="w-5 h-5 text-emerald-400 shrink-0" />
+                <span className="text-sm font-bold text-emerald-300">✅ Data is valid! All checks passed.</span>
               </>
             ) : (
               <>
-                <XCircle className="w-4 h-4" />
-                <span className="text-sm font-medium">❌ Validation failed ({errors.length} errors)</span>
+                <XCircle className="w-5 h-5 text-red-400 shrink-0" />
+                <span className="text-sm font-bold text-red-300">❌ Validation failed ({errors.length} {errors.length === 1 ? 'error' : 'errors'})</span>
               </>
             )}
           </div>
@@ -155,45 +165,89 @@ export default function SchemaValidator() {
       {/* Editors */}
       <div className="flex-1 flex overflow-hidden">
         {/* Schema */}
-        <div className="flex-1 flex flex-col border-r border-dark-border">
-          <div className="px-4 py-2 bg-dark-bg border-b border-dark-border">
-            <h4 className="text-xs font-semibold text-text-secondary">JSON Schema</h4>
+        <div className="flex-1 flex flex-col border-r border-white/10">
+          <div className="px-5 py-3 bg-gradient-to-r from-[#252525] to-[#2A2A2A] border-b border-white/10">
+            <div className="flex items-center gap-2">
+              <Code className="w-4 h-4 text-cyan-400" />
+              <h4 className="text-xs font-bold text-gray-200 uppercase tracking-wide">JSON Schema</h4>
+            </div>
           </div>
-          <textarea
-            value={schema}
-            onChange={(e) => setSchema(e.target.value)}
-            className="flex-1 bg-dark-surface p-4 text-sm font-mono text-white resize-none focus:outline-none"
-            spellCheck={false}
-          />
+          <div className="flex-1 relative">
+            <textarea
+              value={schema}
+              onChange={(e) => setSchema(e.target.value)}
+              className="w-full h-full bg-[#1E1E1E] p-5 text-sm font-mono text-gray-300 resize-none focus:outline-none"
+              style={{
+                caretColor: '#22D3EE'
+              }}
+              spellCheck={false}
+            />
+            {/* Line numbers hint */}
+            <div className="absolute top-5 left-1 text-[10px] font-mono text-gray-700 select-none pointer-events-none">
+              {schema.split('\n').map((_, i) => (
+                <div key={i} className="leading-5 text-right pr-2" style={{minWidth: '2rem'}}>
+                  {i + 1}
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
 
         {/* Data */}
         <div className="flex-1 flex flex-col">
-          <div className="px-4 py-2 bg-dark-bg border-b border-dark-border">
-            <h4 className="text-xs font-semibold text-text-secondary">JSON Data</h4>
+          <div className="px-5 py-3 bg-gradient-to-r from-[#252525] to-[#2A2A2A] border-b border-white/10">
+            <div className="flex items-center gap-2">
+              <Database className="w-4 h-4 text-violet-400" />
+              <h4 className="text-xs font-bold text-gray-200 uppercase tracking-wide">JSON Data</h4>
+            </div>
           </div>
-          <textarea
-            value={data}
-            onChange={(e) => setData(e.target.value)}
-            className="flex-1 bg-dark-surface p-4 text-sm font-mono text-white resize-none focus:outline-none"
-            spellCheck={false}
-          />
+          <div className="flex-1 relative">
+            <textarea
+              value={data}
+              onChange={(e) => setData(e.target.value)}
+              className="w-full h-full bg-[#1E1E1E] p-5 text-sm font-mono text-gray-300 resize-none focus:outline-none"
+              style={{
+                caretColor: '#A78BFA'
+              }}
+              spellCheck={false}
+            />
+            {/* Line numbers hint */}
+            <div className="absolute top-5 left-1 text-[10px] font-mono text-gray-700 select-none pointer-events-none">
+              {data.split('\n').map((_, i) => (
+                <div key={i} className="leading-5 text-right pr-2" style={{minWidth: '2rem'}}>
+                  {i + 1}
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
 
       {/* Errors */}
       {errors.length > 0 && (
-        <div className="shrink-0 border-t border-dark-border bg-dark-bg">
-          <div className="px-4 py-2 border-b border-dark-border">
-            <h4 className="text-xs font-semibold text-red-400">Validation Errors</h4>
+        <div className="shrink-0 border-t border-white/10 bg-gradient-to-r from-[#252525] to-[#2A2A2A]">
+          <div className="px-5 py-3 border-b border-white/10">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-red-400" />
+              <h4 className="text-xs font-bold text-red-300 uppercase tracking-wide">
+                Validation Errors ({errors.length})
+              </h4>
+            </div>
           </div>
-          <div className="max-h-48 overflow-y-auto p-4 space-y-2">
+          <div className="max-h-48 overflow-y-auto p-5 space-y-3">
             {errors.map((error, i) => (
-              <div key={i} className="flex items-start gap-2 text-sm">
-                <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
-                <div>
-                  <div className="font-mono text-red-400">{error.path}</div>
-                  <div className="text-text-secondary">{error.message}</div>
+              <div 
+                key={i} 
+                className="flex items-start gap-3 p-4 rounded-xl bg-red-500/10 border border-red-500/30 hover:border-red-500/50 transition-colors group"
+              >
+                <AlertCircle className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <div className="font-mono text-sm font-bold text-red-300 mb-1 flex items-center gap-2">
+                    <span className="px-2 py-0.5 bg-red-500/20 rounded text-xs">
+                      {error.path}
+                    </span>
+                  </div>
+                  <div className="text-sm text-gray-300">{error.message}</div>
                 </div>
               </div>
             ))}
