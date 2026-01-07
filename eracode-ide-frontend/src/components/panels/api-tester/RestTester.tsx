@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Send, Plus, Trash2, Loader2, Clock, Cookie, Key, Eye, EyeOff, Copy, CheckCircle, X } from 'lucide-react'
-import ResponseViewer from './ResponseViewer'
+import { Send, Plus, Trash2, Loader2, Clock, Cookie, Key, Eye, EyeOff, Copy, CheckCircle, X, Zap, Shield, Globe } from 'lucide-react'
 
 interface Header {
   key: string
@@ -33,7 +32,6 @@ interface ExtractedToken {
   location: string
 }
 
-// ✅ NEW: Request Tab State
 interface RequestTab {
   id: string
   name: string
@@ -45,8 +43,6 @@ interface RequestTab {
   authType: 'none' | 'bearer' | 'basic'
   authToken: string
   cookies: CookieItem[]
-  
-  // Response state
   response: any
   responseBody: string
   responseHeaders: Record<string, string>
@@ -58,33 +54,60 @@ interface RequestTab {
   showTokenPanel: boolean
 }
 
+// Mock ResponseViewer component
+const ResponseViewer = ({ response, headers, status, responseTime, error, cookies }: any) => (
+  <div className="h-full bg-[#1E1E1E] p-4 overflow-auto">
+    <div className="space-y-4">
+      {status && (
+        <div className="flex items-center gap-3">
+          <span className={`px-3 py-1.5 rounded-lg font-semibold text-sm ${
+            status >= 200 && status < 300 ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' :
+            status >= 400 ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' :
+            'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+          }`}>
+            {status} {status >= 200 && status < 300 ? '✓' : '✗'}
+          </span>
+          {responseTime && (
+            <span className="px-3 py-1.5 rounded-lg bg-blue-500/10 text-blue-400 text-sm border border-blue-500/20 flex items-center gap-2">
+              <Clock className="w-4 h-4" />
+              {responseTime}ms
+            </span>
+          )}
+        </div>
+      )}
+      {error && (
+        <div className="bg-rose-500/10 border border-rose-500/30 rounded-xl p-4 text-rose-400">
+          <span className="font-semibold">Error:</span> {error}
+        </div>
+      )}
+      {response && (
+        <pre className="bg-[#252525] border border-[#333] rounded-xl p-4 text-sm text-gray-300 overflow-auto font-mono">
+          {response}
+        </pre>
+      )}
+    </div>
+  </div>
+)
+
 export default function RestTester() {
   const PROXY_URL = 'http://localhost:3001/api/proxy-request'
   const [useProxy, setUseProxy] = useState(true)
-  
-  // ✅ Tab Management
   const [tabs, setTabs] = useState<RequestTab[]>([])
   const [activeTabId, setActiveTabId] = useState<string>('')
   const [tabCounter, setTabCounter] = useState(1)
-  
   const [activeSubTab, setActiveSubTab] = useState<'headers' | 'body' | 'auth' | 'params' | 'cookies' | 'credentials'>('headers')
   const [loading, setLoading] = useState(false)
-  
-  // Credentials (shared across all tabs)
   const [credentials, setCredentials] = useState<StoredCredential[]>([])
   const [showCredentialValues, setShowCredentialValues] = useState<Set<string>>(new Set())
 
-  // ✅ Initialize with first tab
   useEffect(() => {
     if (tabs.length === 0) {
       createNewTab()
     }
   }, [])
 
-  // ✅ Get current active tab
   const currentTab = tabs.find(t => t.id === activeTabId)
 
-  // ✅ Create new tab
   const createNewTab = () => {
     const newTab: RequestTab = {
       id: `tab-${Date.now()}`,
@@ -107,41 +130,32 @@ export default function RestTester() {
       extractedTokens: [],
       showTokenPanel: false
     }
-    
     setTabs([...tabs, newTab])
     setActiveTabId(newTab.id)
     setTabCounter(tabCounter + 1)
   }
 
-  // ✅ Close tab
   const closeTab = (tabId: string) => {
     const newTabs = tabs.filter(t => t.id !== tabId)
     setTabs(newTabs)
-    
     if (activeTabId === tabId && newTabs.length > 0) {
       setActiveTabId(newTabs[newTabs.length - 1].id)
     }
   }
 
-  // ✅ Update current tab
   const updateTab = (updates: Partial<RequestTab>) => {
     if (!currentTab) return
-    
     setTabs(tabs.map(tab => 
-      tab.id === activeTabId 
-        ? { ...tab, ...updates }
-        : tab
+      tab.id === activeTabId ? { ...tab, ...updates } : tab
     ))
   }
 
-  // ✅ Rename tab (double-click to edit)
   const renameTab = (tabId: string, newName: string) => {
     setTabs(tabs.map(tab =>
       tab.id === tabId ? { ...tab, name: newName } : tab
     ))
   }
 
-  // Load credentials from localStorage
   useEffect(() => {
     const stored = localStorage.getItem('api_tester_credentials')
     if (stored) {
@@ -176,11 +190,7 @@ export default function RestTester() {
         const value = data[key]
 
         if (tokenKeys.includes(key.toLowerCase()) && typeof value === 'string' && value.length > 10) {
-          tokens.push({
-            key: key,
-            value: value,
-            location: currentPath
-          })
+          tokens.push({ key: key, value: value, location: currentPath })
         }
 
         if (typeof value === 'object' && value !== null) {
@@ -188,16 +198,11 @@ export default function RestTester() {
         }
       })
     }
-
     return tokens
   }
 
   const addCredential = () => {
-    const newCred: StoredCredential = {
-      name: 'New Credential',
-      value: '',
-      type: 'token'
-    }
+    const newCred: StoredCredential = { name: 'New Credential', value: '', type: 'token' }
     saveCredentials([...credentials, newCred])
   }
 
@@ -223,7 +228,6 @@ export default function RestTester() {
 
   const useCredential = (credential: StoredCredential) => {
     if (!currentTab) return
-    
     if (credential.type === 'token') {
       updateTab({ authType: 'bearer', authToken: credential.value })
       setActiveSubTab('auth')
@@ -234,9 +238,7 @@ export default function RestTester() {
         newHeaders[currentTab.headers.indexOf(existingHeader)].value = credential.value
         updateTab({ headers: newHeaders })
       } else {
-        updateTab({ 
-          headers: [...currentTab.headers, { key: 'X-API-Key', value: credential.value, enabled: true }]
-        })
+        updateTab({ headers: [...currentTab.headers, { key: 'X-API-Key', value: credential.value, enabled: true }] })
       }
       setActiveSubTab('headers')
     }
@@ -248,13 +250,11 @@ export default function RestTester() {
 
   const saveToken = (token: ExtractedToken) => {
     if (!currentTab) return
-    
     const newCred: StoredCredential = {
       name: `${token.key} from ${new URL(currentTab.url).hostname}`,
       value: token.value,
       type: 'token'
     }
-    
     const exists = credentials.find(c => c.value === token.value)
     if (!exists) {
       saveCredentials([...credentials, newCred])
@@ -271,24 +271,14 @@ export default function RestTester() {
     const enabledParams = currentTab.params.filter(p => p.enabled && p.key)
     if (enabledParams.length === 0) return currentTab.url
     const baseUrl = currentTab.url.split('?')[0]
-    const queryString = enabledParams
-      .map(p => `${encodeURIComponent(p.key)}=${encodeURIComponent(p.value)}`)
-      .join('&')
+    const queryString = enabledParams.map(p => `${encodeURIComponent(p.key)}=${encodeURIComponent(p.value)}`).join('&')
     return `${baseUrl}?${queryString}`
   }
 
-  // ✅ MAIN REQUEST HANDLER
   const handleSend = async () => {
     if (!currentTab) return
-    
     setLoading(true)
-    updateTab({ 
-      error: null, 
-      responseCookies: [], 
-      extractedTokens: [], 
-      showTokenPanel: false 
-    })
-    
+    updateTab({ error: null, responseCookies: [], extractedTokens: [], showTokenPanel: false })
     const startTime = Date.now()
 
     try {
@@ -312,7 +302,6 @@ export default function RestTester() {
 
       if (useProxy) {
         console.log('🔌 Using backend proxy for request...')
-        
         const proxyResponse = await fetch(PROXY_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -331,11 +320,7 @@ export default function RestTester() {
 
         const proxyData = await proxyResponse.json()
         const endTime = Date.now()
-
-        const bodyText = typeof proxyData.body === 'string' 
-          ? proxyData.body 
-          : JSON.stringify(proxyData.body, null, 2)
-        
+        const bodyText = typeof proxyData.body === 'string' ? proxyData.body : JSON.stringify(proxyData.body, null, 2)
         const tokens = extractTokensFromResponse(proxyData.body)
         
         updateTab({
@@ -348,10 +333,8 @@ export default function RestTester() {
           extractedTokens: tokens,
           showTokenPanel: tokens.length > 0
         })
-
       } else {
         console.log('⚠️ Using direct fetch (cookies hidden by browser)')
-        
         const options: RequestInit = {
           method: currentTab.method,
           headers: requestHeaders,
@@ -364,7 +347,6 @@ export default function RestTester() {
 
         const res = await fetch(finalUrl, options)
         const endTime = Date.now()
-
         const contentType = res.headers.get('content-type')
         let data
         
@@ -391,7 +373,6 @@ export default function RestTester() {
           showTokenPanel: tokens.length > 0
         })
       }
-
     } catch (err: any) {
       console.error('Request error:', err)
       updateTab({
@@ -406,44 +387,44 @@ export default function RestTester() {
 
   const getMethodColor = (m: string) => {
     switch (m) {
-      case 'GET': return 'text-green-400 bg-green-400/10'
-      case 'POST': return 'text-yellow-400 bg-yellow-400/10'
-      case 'PUT': return 'text-blue-400 bg-blue-400/10'
-      case 'PATCH': return 'text-purple-400 bg-purple-400/10'
-      case 'DELETE': return 'text-red-400 bg-red-400/10'
-      default: return 'text-gray-400 bg-gray-400/10'
+      case 'GET': return 'text-emerald-400 bg-emerald-500/15 border-emerald-500/30'
+      case 'POST': return 'text-amber-400 bg-amber-500/15 border-amber-500/30'
+      case 'PUT': return 'text-blue-400 bg-blue-500/15 border-blue-500/30'
+      case 'PATCH': return 'text-violet-400 bg-violet-500/15 border-violet-500/30'
+      case 'DELETE': return 'text-rose-400 bg-rose-500/15 border-rose-500/30'
+      default: return 'text-gray-400 bg-gray-500/15 border-gray-500/30'
     }
   }
 
   if (!currentTab) return null
 
   return (
-    <div className="flex flex-col h-full">
-      {/* ✅ TAB BAR */}
-      <div className="flex items-center gap-1 bg-dark-surface border-b border-dark-border px-2 py-1 overflow-x-auto">
+    <div className="flex flex-col h-full bg-[#1E1E1E]">
+      {/* Tab Bar with Gradient */}
+      <div className="flex items-center gap-1 bg-gradient-to-r from-[#252525] to-[#2a2a2a] border-b border-[#333] px-3 py-2 overflow-x-auto shadow-lg">
         {tabs.map((tab) => (
           <div
             key={tab.id}
-            className={`group flex items-center gap-2 px-3 py-1.5 rounded-t border-b-2 transition-all cursor-pointer min-w-[120px] max-w-[200px] ${
+            className={`group flex items-center gap-2 px-4 py-2 rounded-lg border transition-all cursor-pointer min-w-[140px] max-w-[220px] ${
               activeTabId === tab.id
-                ? 'bg-dark-bg border-blue-500 text-white'
-                : 'bg-dark-surface/50 border-transparent text-text-secondary hover:bg-dark-bg/50 hover:text-white'
+                ? 'bg-gradient-to-br from-blue-500/20 to-violet-500/20 border-blue-500/50 text-white shadow-lg shadow-blue-500/10'
+                : 'bg-[#252525] border-[#333] text-gray-400 hover:bg-[#2a2a2a] hover:border-[#444] hover:text-white'
             }`}
             onClick={() => setActiveTabId(tab.id)}
           >
-            <div className={`text-xs px-1.5 py-0.5 rounded font-medium ${getMethodColor(tab.method)}`}>
+            <div className={`text-xs px-2 py-1 rounded-md font-bold border ${getMethodColor(tab.method)}`}>
               {tab.method}
             </div>
             
-            <span className="flex-1 text-sm truncate">
+            <span className="flex-1 text-sm font-medium truncate">
               {tab.name}
             </span>
 
             {tab.status && (
-              <span className={`text-xs px-1 rounded ${
-                tab.status >= 200 && tab.status < 300 ? 'bg-green-500/20 text-green-400' :
-                tab.status >= 400 ? 'bg-red-500/20 text-red-400' :
-                'bg-yellow-500/20 text-yellow-400'
+              <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${
+                tab.status >= 200 && tab.status < 300 ? 'bg-emerald-500/20 text-emerald-400' :
+                tab.status >= 400 ? 'bg-rose-500/20 text-rose-400' :
+                'bg-amber-500/20 text-amber-400'
               }`}>
                 {tab.status}
               </span>
@@ -454,30 +435,30 @@ export default function RestTester() {
                 e.stopPropagation()
                 closeTab(tab.id)
               }}
-              className="opacity-0 group-hover:opacity-100 hover:bg-red-500/20 p-0.5 rounded transition-opacity"
+              className="opacity-0 group-hover:opacity-100 hover:bg-rose-500/20 p-1 rounded transition-all"
             >
-              <X className="w-3 h-3 text-red-400" />
+              <X className="w-3.5 h-3.5 text-rose-400" />
             </button>
           </div>
         ))}
         
         <button
           onClick={createNewTab}
-          className="flex items-center gap-1 px-3 py-1.5 text-xs text-blue-400 hover:bg-dark-bg rounded transition-colors"
+          className="flex items-center gap-2 px-4 py-2 text-sm text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 rounded-lg transition-all border border-transparent hover:border-blue-500/30"
         >
-          <Plus className="w-3.5 h-3.5" />
-          New Tab
+          <Plus className="w-4 h-4" />
+          <span className="font-medium">New</span>
         </button>
       </div>
 
       {/* Request Section */}
-      <div className="shrink-0 border-b border-dark-border">
-        {/* Method + URL */}
-        <div className="flex gap-2 p-3">
+      <div className="shrink-0 border-b border-[#333]">
+        {/* Method + URL with Gradient Background */}
+        <div className="flex gap-3 p-4 bg-gradient-to-r from-[#252525] to-[#232323]">
           <select
             value={currentTab.method}
             onChange={(e) => updateTab({ method: e.target.value })}
-            className={`w-28 px-3 py-2 rounded text-xs font-medium border border-dark-border ${getMethodColor(currentTab.method)} focus:outline-none focus:ring-2 focus:ring-blue-500`}
+            className={`w-32 px-4 py-3 rounded-xl text-sm font-bold border-2 ${getMethodColor(currentTab.method)} focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all cursor-pointer shadow-lg`}
           >
             <option>GET</option>
             <option>POST</option>
@@ -491,14 +472,14 @@ export default function RestTester() {
             value={currentTab.url}
             onChange={(e) => updateTab({ url: e.target.value })}
             placeholder="Enter request URL..."
-            className="flex-1 bg-dark-bg border border-dark-border rounded px-3 py-2 text-sm text-white placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="flex-1 bg-[#252525] border-2 border-[#333] rounded-xl px-4 py-3 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all shadow-inner"
             onKeyPress={(e) => e.key === 'Enter' && handleSend()}
           />
 
           <button
             onClick={handleSend}
             disabled={loading}
-            className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded px-6 py-2 text-sm font-medium flex items-center gap-2 transition-colors"
+            className="bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-500 hover:to-violet-500 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl px-8 py-3 text-sm font-bold flex items-center gap-2 transition-all shadow-lg hover:shadow-xl hover:shadow-blue-500/30 disabled:shadow-none"
           >
             {loading ? (
               <>
@@ -514,86 +495,92 @@ export default function RestTester() {
           </button>
         </div>
 
-        {/* Backend Proxy Toggle */}
-        <div className="px-3 pb-2 border-t border-dark-border">
-          <label className="flex items-center gap-2 text-sm cursor-pointer hover:bg-dark-surface p-2 rounded transition-colors">
+        {/* Proxy Toggle with Enhanced Design */}
+        <div className="px-4 pb-3 bg-gradient-to-r from-[#252525] to-[#232323]">
+          <label className="flex items-center gap-3 cursor-pointer hover:bg-[#2a2a2a] p-3 rounded-xl transition-all border border-transparent hover:border-[#444] group">
             <input
               type="checkbox"
               checked={useProxy}
               onChange={(e) => setUseProxy(e.target.checked)}
-              className="w-4 h-4 accent-blue-500 cursor-pointer"
+              className="w-5 h-5 accent-blue-500 cursor-pointer rounded"
             />
-            <div className="flex items-center gap-2 flex-1">
-              <span className={useProxy ? 'text-white font-medium' : 'text-text-secondary'}>
-                🔌 Use Backend Proxy
+            <div className="flex items-center gap-3 flex-1">
+              <Globe className={`w-5 h-5 ${useProxy ? 'text-blue-400' : 'text-gray-500'} transition-colors`} />
+              <span className={`font-semibold ${useProxy ? 'text-white' : 'text-gray-400'} transition-colors`}>
+                Backend Proxy
               </span>
-              <span className="text-xs text-text-secondary">
-                (View cookies & bypass CORS)
+              <span className="text-xs text-gray-500">
+                View cookies & bypass CORS
               </span>
             </div>
             {useProxy && (
-              <span className="text-xs bg-green-500/20 text-green-400 px-2 py-1 rounded flex items-center gap-1">
-                <Cookie className="w-3 h-3" />
-                Cookies Visible
+              <span className="text-xs bg-emerald-500/20 text-emerald-400 px-3 py-1.5 rounded-full flex items-center gap-2 font-semibold border border-emerald-500/30">
+                <Cookie className="w-3.5 h-3.5" />
+                Active
               </span>
             )}
           </label>
         </div>
 
-        {/* Token Detection Panel */}
+        {/* Token Detection Panel with Premium Design */}
         {currentTab.showTokenPanel && currentTab.extractedTokens.length > 0 && (
-          <div className="mx-3 mb-3 bg-green-500/10 border-2 border-green-500/50 rounded-lg p-3">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <Key className="w-5 h-5 text-green-400" />
-                <span className="text-sm font-bold text-green-400">
-                  🎉 {currentTab.extractedTokens.length} Token{currentTab.extractedTokens.length > 1 ? 's' : ''} Detected!
-                </span>
+          <div className="mx-4 mb-4 bg-gradient-to-br from-emerald-500/10 to-teal-500/10 border-2 border-emerald-500/40 rounded-2xl p-4 shadow-xl shadow-emerald-500/10">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="bg-emerald-500/20 p-2 rounded-xl">
+                  <Zap className="w-5 h-5 text-emerald-400" />
+                </div>
+                <div>
+                  <span className="text-sm font-bold text-emerald-400 block">
+                    Tokens Detected!
+                  </span>
+                  <span className="text-xs text-gray-400">
+                    {currentTab.extractedTokens.length} token{currentTab.extractedTokens.length > 1 ? 's' : ''} found in response
+                  </span>
+                </div>
               </div>
               <button
                 onClick={() => updateTab({ showTokenPanel: false })}
-                className="text-xs text-text-secondary hover:text-white"
+                className="text-gray-400 hover:text-white hover:bg-[#2a2a2a] p-2 rounded-lg transition-all"
               >
-                ✕ Dismiss
+                <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-3">
               {currentTab.extractedTokens.map((token, i) => (
-                <div key={i} className="bg-dark-surface rounded-lg p-3 border border-green-500/30">
-                  <div className="flex items-center justify-between mb-2">
+                <div key={i} className="bg-[#252525] rounded-xl p-4 border border-emerald-500/20 hover:border-emerald-500/40 transition-all">
+                  <div className="flex items-center justify-between mb-3">
                     <div>
-                      <div className="text-sm font-semibold text-white">{token.key}</div>
-                      <div className="text-xs text-text-secondary">{token.location}</div>
+                      <div className="text-sm font-bold text-white">{token.key}</div>
+                      <div className="text-xs text-gray-400 mt-1">{token.location}</div>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="flex-1 bg-dark-bg rounded px-3 py-2 font-mono text-xs text-green-400 overflow-x-auto whitespace-nowrap">
-                      {token.value.substring(0, 60)}...
-                    </div>
+                  <div className="bg-[#1E1E1E] rounded-lg px-4 py-3 font-mono text-xs text-emerald-400 overflow-x-auto mb-3 border border-[#333]">
+                    {token.value.substring(0, 60)}...
                   </div>
 
-                  <div className="flex gap-2">
+                  <div className="grid grid-cols-3 gap-2">
                     <button
                       onClick={() => copyToken(token.value)}
-                      className="flex-1 bg-blue-600 hover:bg-blue-700 text-white rounded px-3 py-1.5 text-xs font-medium flex items-center justify-center gap-1"
+                      className="bg-blue-600 hover:bg-blue-500 text-white rounded-lg px-3 py-2 text-xs font-bold flex items-center justify-center gap-2 transition-all"
                     >
-                      <Copy className="w-3 h-3" />
-                      Copy Token
+                      <Copy className="w-3.5 h-3.5" />
+                      Copy
                     </button>
                     <button
                       onClick={() => useToken(token.value)}
-                      className="flex-1 bg-purple-600 hover:bg-purple-700 text-white rounded px-3 py-1.5 text-xs font-medium flex items-center justify-center gap-1"
+                      className="bg-violet-600 hover:bg-violet-500 text-white rounded-lg px-3 py-2 text-xs font-bold flex items-center justify-center gap-2 transition-all"
                     >
-                      <Key className="w-3 h-3" />
-                      Use in Auth
+                      <Shield className="w-3.5 h-3.5" />
+                      Use
                     </button>
                     <button
                       onClick={() => saveToken(token)}
-                      className="flex-1 bg-green-600 hover:bg-green-700 text-white rounded px-3 py-1.5 text-xs font-medium flex items-center justify-center gap-1"
+                      className="bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg px-3 py-2 text-xs font-bold flex items-center justify-center gap-2 transition-all"
                     >
-                      <CheckCircle className="w-3 h-3" />
+                      <CheckCircle className="w-3.5 h-3.5" />
                       Save
                     </button>
                   </div>
@@ -603,44 +590,44 @@ export default function RestTester() {
           </div>
         )}
 
-        {/* Sub-Tabs */}
-        <div className="flex border-t border-dark-border px-3 overflow-x-auto">
+        {/* Sub-Tabs with Enhanced Design */}
+        <div className="flex border-t border-[#333] px-4 overflow-x-auto bg-[#252525]">
           {(['params', 'headers', 'body', 'auth', 'cookies', 'credentials'] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveSubTab(tab)}
-              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap flex items-center gap-2 ${
+              className={`px-5 py-3 text-sm font-bold border-b-2 transition-all whitespace-nowrap flex items-center gap-2 ${
                 activeSubTab === tab
-                  ? 'border-blue-500 text-blue-400'
-                  : 'border-transparent text-text-secondary hover:text-white'
+                  ? 'border-blue-500 text-blue-400 bg-blue-500/5'
+                  : 'border-transparent text-gray-400 hover:text-white hover:bg-[#2a2a2a]'
               }`}
             >
-              {tab === 'cookies' && <Cookie className="w-3.5 h-3.5" />}
-              {tab === 'credentials' && <Key className="w-3.5 h-3.5" />}
+              {tab === 'cookies' && <Cookie className="w-4 h-4" />}
+              {tab === 'credentials' && <Key className="w-4 h-4" />}
               {tab.charAt(0).toUpperCase() + tab.slice(1)}
               {tab === 'credentials' && credentials.length > 0 && (
-                <span className="bg-blue-500 text-white text-xs px-1.5 py-0.5 rounded-full">{credentials.length}</span>
+                <span className="bg-blue-500 text-white text-xs px-2 py-0.5 rounded-full font-bold">{credentials.length}</span>
               )}
             </button>
           ))}
         </div>
 
         {/* Sub-Tab Content */}
-        <div className="max-h-64 overflow-y-auto">
+        <div className="max-h-72 overflow-y-auto bg-[#1E1E1E]">
           {/* Params Tab */}
           {activeSubTab === 'params' && (
-            <div className="p-3 space-y-2">
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="text-xs font-semibold text-text-secondary">Query Parameters</h3>
+            <div className="p-4 space-y-3">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-bold text-gray-300">Query Parameters</h3>
                 <button 
                   onClick={() => updateTab({ params: [...currentTab.params, { key: '', value: '', enabled: true }] })}
-                  className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1"
+                  className="text-sm text-blue-400 hover:text-blue-300 flex items-center gap-2 hover:bg-blue-500/10 px-3 py-1.5 rounded-lg transition-all font-semibold"
                 >
-                  <Plus className="w-3 h-3" /> Add
+                  <Plus className="w-4 h-4" /> Add
                 </button>
               </div>
               {currentTab.params.map((param, i) => (
-                <div key={i} className="flex items-center gap-2">
+                <div key={i} className="flex items-center gap-2 bg-[#252525] p-3 rounded-xl border border-[#333] hover:border-[#444] transition-all">
                   <input 
                     type="checkbox" 
                     checked={param.enabled} 
@@ -649,7 +636,7 @@ export default function RestTester() {
                       newParams[i].enabled = e.target.checked
                       updateTab({ params: newParams })
                     }}
-                    className="w-4 h-4 shrink-0" 
+                    className="w-4 h-4 shrink-0 accent-blue-500 rounded" 
                   />
                   <input 
                     type="text" 
@@ -660,7 +647,7 @@ export default function RestTester() {
                       updateTab({ params: newParams })
                     }}
                     placeholder="Key" 
-                    className="flex-1 min-w-0 bg-dark-bg border border-dark-border rounded px-3 py-1.5 text-sm text-white" 
+                    className="flex-1 min-w-0 bg-[#1E1E1E] border border-[#333] rounded-lg px-3 py-2 text-sm text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all" 
                   />
                   <input 
                     type="text" 
@@ -671,11 +658,11 @@ export default function RestTester() {
                       updateTab({ params: newParams })
                     }}
                     placeholder="Value" 
-                    className="flex-1 min-w-0 bg-dark-bg border border-dark-border rounded px-3 py-1.5 text-sm text-white" 
+                    className="flex-1 min-w-0 bg-[#1E1E1E] border border-[#333] rounded-lg px-3 py-2 text-sm text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all" 
                   />
                   <button 
                     onClick={() => updateTab({ params: currentTab.params.filter((_, idx) => idx !== i) })}
-                    className="text-red-400 hover:text-red-300 p-1 shrink-0"
+                    className="text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 p-2 rounded-lg shrink-0 transition-all"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
@@ -686,18 +673,18 @@ export default function RestTester() {
 
           {/* Headers Tab */}
           {activeSubTab === 'headers' && (
-            <div className="p-3 space-y-2">
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="text-xs font-semibold text-text-secondary">Request Headers</h3>
+            <div className="p-4 space-y-3">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-bold text-gray-300">Request Headers</h3>
                 <button 
                   onClick={() => updateTab({ headers: [...currentTab.headers, { key: '', value: '', enabled: true }] })}
-                  className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1"
+                  className="text-sm text-blue-400 hover:text-blue-300 flex items-center gap-2 hover:bg-blue-500/10 px-3 py-1.5 rounded-lg transition-all font-semibold"
                 >
-                  <Plus className="w-3 h-3" /> Add
+                  <Plus className="w-4 h-4" /> Add
                 </button>
               </div>
               {currentTab.headers.map((header, i) => (
-                <div key={i} className="flex items-center gap-2">
+                <div key={i} className="flex items-center gap-2 bg-[#252525] p-3 rounded-xl border border-[#333] hover:border-[#444] transition-all">
                   <input 
                     type="checkbox" 
                     checked={header.enabled} 
@@ -706,7 +693,7 @@ export default function RestTester() {
                       newHeaders[i].enabled = e.target.checked
                       updateTab({ headers: newHeaders })
                     }}
-                    className="w-4 h-4 shrink-0" 
+                    className="w-4 h-4 shrink-0 accent-blue-500 rounded" 
                   />
                   <input 
                     type="text" 
@@ -717,7 +704,7 @@ export default function RestTester() {
                       updateTab({ headers: newHeaders })
                     }}
                     placeholder="Header" 
-                    className="flex-1 min-w-0 bg-dark-bg border border-dark-border rounded px-3 py-1.5 text-sm text-white" 
+                    className="flex-1 min-w-0 bg-[#1E1E1E] border border-[#333] rounded-lg px-3 py-2 text-sm text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all" 
                   />
                   <input 
                     type="text" 
@@ -728,11 +715,11 @@ export default function RestTester() {
                       updateTab({ headers: newHeaders })
                     }}
                     placeholder="Value" 
-                    className="flex-1 min-w-0 bg-dark-bg border border-dark-border rounded px-3 py-1.5 text-sm text-white" 
+                    className="flex-1 min-w-0 bg-[#1E1E1E] border border-[#333] rounded-lg px-3 py-2 text-sm text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all" 
                   />
                   <button 
                     onClick={() => updateTab({ headers: currentTab.headers.filter((_, idx) => idx !== i) })}
-                    className="text-red-400 hover:text-red-300 p-1 shrink-0"
+                    className="text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 p-2 rounded-lg shrink-0 transition-all"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
@@ -743,25 +730,25 @@ export default function RestTester() {
 
           {/* Body Tab */}
           {activeSubTab === 'body' && (
-            <div className="p-3">
+            <div className="p-4">
               <textarea
                 value={currentTab.bodyContent}
                 onChange={(e) => updateTab({ bodyContent: e.target.value })}
                 placeholder='{\n  "email": "user@example.com",\n  "password": "password123"\n}'
-                className="w-full h-32 bg-dark-bg border border-dark-border rounded p-3 text-sm font-mono text-white resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full h-40 bg-[#252525] border-2 border-[#333] rounded-xl p-4 text-sm font-mono text-white resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all shadow-inner"
               />
             </div>
           )}
 
           {/* Auth Tab */}
           {activeSubTab === 'auth' && (
-            <div className="p-3 space-y-3">
+            <div className="p-4 space-y-4">
               <select 
                 value={currentTab.authType} 
                 onChange={(e) => updateTab({ authType: e.target.value as any })}
-                className="w-full bg-dark-bg border border-dark-border rounded px-3 py-2 text-sm text-white"
+                className="w-full bg-[#252525] border-2 border-[#333] rounded-xl px-4 py-3 text-sm text-white font-semibold focus:border-blue-500 focus:ring-2 focus:ring-blue-500 transition-all cursor-pointer"
               >
-                <option value="none">No Auth</option>
+                <option value="none">No Authentication</option>
                 <option value="bearer">Bearer Token</option>
                 <option value="basic">Basic Auth</option>
               </select>
@@ -771,7 +758,7 @@ export default function RestTester() {
                   value={currentTab.authToken}
                   onChange={(e) => updateTab({ authToken: e.target.value })}
                   placeholder={currentTab.authType === 'bearer' ? 'Enter token...' : 'username:password'}
-                  className="w-full bg-dark-bg border border-dark-border rounded px-3 py-2 text-sm text-white font-mono"
+                  className="w-full bg-[#252525] border-2 border-[#333] rounded-xl px-4 py-3 text-sm text-white font-mono focus:border-blue-500 focus:ring-2 focus:ring-blue-500 transition-all shadow-inner"
                 />
               )}
             </div>
@@ -779,32 +766,33 @@ export default function RestTester() {
 
           {/* Cookies Tab */}
           {activeSubTab === 'cookies' && (
-            <div className="p-3 space-y-3">
+            <div className="p-4 space-y-4">
               <div className="flex items-center justify-between">
-                <h3 className="text-xs font-semibold text-text-secondary">Request Cookies</h3>
+                <h3 className="text-sm font-bold text-gray-300">Request Cookies</h3>
                 <button 
                   onClick={() => updateTab({ 
                     cookies: [...currentTab.cookies, { name: '', value: '', domain: '', path: '/' }]
                   })}
-                  className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1"
+                  className="text-sm text-blue-400 hover:text-blue-300 flex items-center gap-2 hover:bg-blue-500/10 px-3 py-1.5 rounded-lg transition-all font-semibold"
                 >
-                  <Plus className="w-3 h-3" /> Add Cookie
+                  <Plus className="w-4 h-4" /> Add Cookie
                 </button>
               </div>
 
               {!useProxy && (
-                <div className="bg-yellow-500/10 border border-yellow-500/30 rounded p-2 text-xs text-yellow-400">
-                  ⚠️ Enable "Use Backend Proxy" to see response cookies
+                <div className="bg-amber-500/10 border-2 border-amber-500/30 rounded-xl p-3 text-sm text-amber-400 flex items-center gap-2">
+                  <span className="text-xl">⚠️</span>
+                  <span>Enable "Backend Proxy" to see response cookies</span>
                 </div>
               )}
 
               {currentTab.cookies.length === 0 ? (
-                <div className="text-center py-4 text-text-secondary text-sm">
+                <div className="text-center py-8 text-gray-500 text-sm">
                   No cookies added yet
                 </div>
               ) : (
                 currentTab.cookies.map((cookie, i) => (
-                  <div key={i} className="bg-dark-bg border border-dark-border rounded p-2 space-y-2">
+                  <div key={i} className="bg-[#252525] border border-[#333] rounded-xl p-3 space-y-3 hover:border-[#444] transition-all">
                     <div className="flex gap-2">
                       <input
                         type="text"
@@ -815,7 +803,7 @@ export default function RestTester() {
                           updateTab({ cookies: newCookies })
                         }}
                         placeholder="Cookie name"
-                        className="flex-1 bg-dark-surface border border-dark-border rounded px-2 py-1 text-sm text-white"
+                        className="flex-1 bg-[#1E1E1E] border border-[#333] rounded-lg px-3 py-2 text-sm text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
                       />
                       <input
                         type="text"
@@ -826,11 +814,11 @@ export default function RestTester() {
                           updateTab({ cookies: newCookies })
                         }}
                         placeholder="Cookie value"
-                        className="flex-1 bg-dark-surface border border-dark-border rounded px-2 py-1 text-sm text-white"
+                        className="flex-1 bg-[#1E1E1E] border border-[#333] rounded-lg px-3 py-2 text-sm text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
                       />
                       <button
                         onClick={() => updateTab({ cookies: currentTab.cookies.filter((_, idx) => idx !== i) })}
-                        className="text-red-400 hover:text-red-300 p-1"
+                        className="text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 p-2 rounded-lg transition-all"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -841,34 +829,34 @@ export default function RestTester() {
 
               {/* Response Cookies */}
               {currentTab.responseCookies.length > 0 && (
-                <div className="mt-4 pt-4 border-t border-dark-border">
-                  <h3 className="text-xs font-semibold text-green-400 mb-2 flex items-center gap-1">
-                    <CheckCircle className="w-4 h-4" />
-                    Cookies from Response ({currentTab.responseCookies.length})
+                <div className="mt-6 pt-6 border-t border-[#333]">
+                  <h3 className="text-sm font-bold text-emerald-400 mb-3 flex items-center gap-2">
+                    <CheckCircle className="w-5 h-5" />
+                    Response Cookies ({currentTab.responseCookies.length})
                   </h3>
-                  <div className="space-y-2">
+                  <div className="space-y-3">
                     {currentTab.responseCookies.map((cookie, i) => (
-                      <div key={i} className="bg-green-500/10 border border-green-500/30 rounded p-2">
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-sm font-mono text-green-400">{cookie.name}</span>
+                      <div key={i} className="bg-gradient-to-br from-emerald-500/10 to-teal-500/10 border-2 border-emerald-500/30 rounded-xl p-4 hover:border-emerald-500/50 transition-all">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-sm font-bold font-mono text-emerald-400">{cookie.name}</span>
                           <div className="flex gap-2">
                             {cookie.httpOnly && (
-                              <span className="text-xs bg-orange-500/20 text-orange-400 px-2 py-0.5 rounded">
+                              <span className="text-xs bg-orange-500/20 text-orange-400 px-2 py-1 rounded-full font-semibold border border-orange-500/30">
                                 HttpOnly
                               </span>
                             )}
                             {cookie.secure && (
-                              <span className="text-xs bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded">
+                              <span className="text-xs bg-blue-500/20 text-blue-400 px-2 py-1 rounded-full font-semibold border border-blue-500/30">
                                 Secure
                               </span>
                             )}
                           </div>
                         </div>
-                        <div className="text-xs text-text-secondary font-mono truncate mb-2">{cookie.value}</div>
-                        <div className="flex items-center justify-between text-xs text-text-secondary">
+                        <div className="text-xs text-gray-400 font-mono truncate mb-3 bg-[#1E1E1E] px-3 py-2 rounded-lg">{cookie.value}</div>
+                        <div className="flex items-center justify-between text-xs text-gray-400">
                           <div>
-                            <span className="text-text-secondary/60">Domain:</span> {cookie.domain} | 
-                            <span className="text-text-secondary/60"> Path:</span> {cookie.path}
+                            <span className="text-gray-500">Domain:</span> <span className="text-white">{cookie.domain}</span> | 
+                            <span className="text-gray-500"> Path:</span> <span className="text-white">{cookie.path}</span>
                           </div>
                           <button
                             onClick={() => {
@@ -876,7 +864,7 @@ export default function RestTester() {
                                 updateTab({ cookies: [...currentTab.cookies, cookie] })
                               }
                             }}
-                            className="text-blue-400 hover:text-blue-300"
+                            className="text-blue-400 hover:text-blue-300 font-semibold hover:bg-blue-500/10 px-3 py-1 rounded-lg transition-all"
                           >
                             Use in Request →
                           </button>
@@ -891,36 +879,38 @@ export default function RestTester() {
 
           {/* Credentials Tab */}
           {activeSubTab === 'credentials' && (
-            <div className="p-3 space-y-3">
+            <div className="p-4 space-y-4">
               <div className="flex items-center justify-between">
-                <h3 className="text-xs font-semibold text-text-secondary">Saved Credentials</h3>
+                <h3 className="text-sm font-bold text-gray-300">Saved Credentials</h3>
                 <button 
                   onClick={addCredential}
-                  className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1"
+                  className="text-sm text-blue-400 hover:text-blue-300 flex items-center gap-2 hover:bg-blue-500/10 px-3 py-1.5 rounded-lg transition-all font-semibold"
                 >
-                  <Plus className="w-3 h-3" /> Add
+                  <Plus className="w-4 h-4" /> Add
                 </button>
               </div>
 
               {credentials.length === 0 ? (
-                <div className="text-center py-4 text-text-secondary text-sm">
-                  No credentials saved yet. Use "Save" button on detected tokens.
+                <div className="text-center py-8 text-gray-500 text-sm bg-[#252525] rounded-xl border border-[#333] p-6">
+                  <Key className="w-12 h-12 mx-auto mb-3 text-gray-600" />
+                  <p>No credentials saved yet</p>
+                  <p className="text-xs mt-2">Use "Save" button on detected tokens</p>
                 </div>
               ) : (
                 credentials.map((cred, i) => (
-                  <div key={i} className="bg-dark-bg border border-dark-border rounded p-3 space-y-2">
+                  <div key={i} className="bg-[#252525] border border-[#333] rounded-xl p-4 space-y-3 hover:border-[#444] transition-all">
                     <div className="flex items-center gap-2">
                       <input
                         type="text"
                         value={cred.name}
                         onChange={(e) => updateCredential(i, 'name', e.target.value)}
                         placeholder="Credential name"
-                        className="flex-1 bg-dark-surface border border-dark-border rounded px-2 py-1 text-sm text-white"
+                        className="flex-1 bg-[#1E1E1E] border border-[#333] rounded-lg px-3 py-2 text-sm text-white font-semibold focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
                       />
                       <select
                         value={cred.type}
                         onChange={(e) => updateCredential(i, 'type', e.target.value)}
-                        className="bg-dark-surface border border-dark-border rounded px-2 py-1 text-xs text-white"
+                        className="bg-[#1E1E1E] border border-[#333] rounded-lg px-3 py-2 text-xs text-white font-semibold focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all cursor-pointer"
                       >
                         <option value="token">Token</option>
                         <option value="apikey">API Key</option>
@@ -934,11 +924,11 @@ export default function RestTester() {
                         value={cred.value}
                         onChange={(e) => updateCredential(i, 'value', e.target.value)}
                         placeholder="Enter value..."
-                        className="flex-1 bg-dark-surface border border-dark-border rounded px-2 py-1 text-sm text-white font-mono"
+                        className="flex-1 bg-[#1E1E1E] border border-[#333] rounded-lg px-3 py-2 text-sm text-white font-mono focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
                       />
                       <button
                         onClick={() => toggleShowCredential(cred.name)}
-                        className="text-text-secondary hover:text-white p-1"
+                        className="text-gray-400 hover:text-white hover:bg-[#2a2a2a] p-2 rounded-lg transition-all"
                       >
                         {showCredentialValues.has(cred.name) ? (
                           <EyeOff className="w-4 h-4" />
@@ -948,16 +938,16 @@ export default function RestTester() {
                       </button>
                     </div>
 
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between pt-2 border-t border-[#333]">
                       <button
                         onClick={() => useCredential(cred)}
-                        className="text-xs text-blue-400 hover:text-blue-300"
+                        className="text-sm text-blue-400 hover:text-blue-300 font-semibold hover:bg-blue-500/10 px-3 py-1.5 rounded-lg transition-all"
                       >
                         Use in Request →
                       </button>
                       <button
                         onClick={() => deleteCredential(i)}
-                        className="text-xs text-red-400 hover:text-red-300"
+                        className="text-sm text-rose-400 hover:text-rose-300 font-semibold hover:bg-rose-500/10 px-3 py-1.5 rounded-lg transition-all"
                       >
                         Delete
                       </button>
@@ -972,7 +962,7 @@ export default function RestTester() {
 
       {/* Response Section */}
       {(currentTab.response !== null || currentTab.error) && (
-        <div className="flex-1 overflow-hidden border-t border-dark-border">
+        <div className="flex-1 overflow-hidden border-t-2 border-[#333]">
           <ResponseViewer
             response={currentTab.responseBody}
             headers={currentTab.responseHeaders}
