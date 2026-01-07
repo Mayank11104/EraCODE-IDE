@@ -2,7 +2,7 @@ import { MoreHorizontal } from 'lucide-react'
 
 export default function CICDPanel() {
   return (
-    <div className="w-[300px] h-full bg-dark-surface border-r border-dark-border flex flex-col shrink-0">
+    <div className="w-[250px] h-full bg-dark-surface border-r border-dark-border flex flex-col shrink-0">
       <div className="h-9 px-3 flex items-center justify-between bg-dark-header border-b border-dark-border">
         <span className="text-[11px] font-bold tracking-wide text-green-400 uppercase">
           CI/CD Pipeline
