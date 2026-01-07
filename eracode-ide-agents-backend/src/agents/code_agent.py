@@ -4,6 +4,7 @@ from src.models.request_models import FileEdit
 from src.utils.logger import logger
 from typing import Any
 import os
+import base64
 
 class CodeAgent(BaseAgent):
     """Agent that creates, edits, and refactors code"""
@@ -90,20 +91,26 @@ class CodeAgent(BaseAgent):
                 # Ensure directory exists
                 os.makedirs(os.path.dirname(file_path), exist_ok=True)
                 
+                content = edit.get("content")
+                if content is None and edit.get("content_base64"):
+                    content = base64.b64decode(edit["content_base64"]).decode("utf-8", errors="replace")
+                
+                if content is None:
+                    return {"success": False, "error": "Missing content/content_base64 for create/update"}
+                
                 # Write file
                 with open(file_path, 'w', encoding='utf-8') as f:
-                    f.write(edit["content"])
+                    f.write(content)
                 
                 logger.info(f"✅ {action.capitalize()}d: {edit['file']}")
                 return {"success": True, "file": edit["file"], "action": action}
                 
-            elif action == "delete":
+            if action == "delete":
                 if os.path.exists(file_path):
                     os.remove(file_path)
                     logger.info(f"✅ Deleted: {edit['file']}")
                     return {"success": True, "file": edit["file"], "action": "delete"}
-                else:
-                    return {"success": False, "error": "File not found"}
+                return {"success": False, "error": "File not found"}
             
         except Exception as e:
             logger.error(f"❌ Failed to {action} {edit['file']}: {e}")
