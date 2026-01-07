@@ -2,7 +2,7 @@ import { Database, MoreHorizontal } from 'lucide-react'
 
 export default function DatabasePanel() {
   return (
-    <div className="w-[280px] h-full bg-dark-surface border-r border-dark-border flex flex-col shrink-0">
+    <div className="w-[250px] h-full bg-dark-surface border-r border-dark-border flex flex-col shrink-0">
       <div className="h-9 px-3 flex items-center justify-between bg-dark-header border-b border-dark-border">
         <span className="text-[11px] font-bold tracking-wide text-indigo-400 uppercase">
           Database Explorer
