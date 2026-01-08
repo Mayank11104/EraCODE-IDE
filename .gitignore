@@ -29,3 +29,6 @@ logs/
 *.docx
 *.pdf
 chats/
+*.pem
+eracode-ide-backend/eracode-terminal-key.pem
+venv311

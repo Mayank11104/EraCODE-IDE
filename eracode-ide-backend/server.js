@@ -13,6 +13,7 @@ const WebSocket = require('ws') // ✅ NEW: For WebSocket proxy
 const config = require('./config/config')
 const logger = require('./utils/logger')
 const initializeTerminalSocket = require('./sockets/terminal.socket')
+const gitRoutes = require('./routes/gitRoutes');
 
 // ========================================
 // INITIALIZE EXPRESS & SOCKET.IO
@@ -102,6 +103,22 @@ app.get('/api/terminals', (req, res) => {
     terminals: terminals
   })
 })
+
+// ========================================
+// ✅ GIT ROUTES
+// ========================================
+app.use('/api/git', gitRoutes);
+
+// ========================================
+// ✅ FILE ROUTES (For Dev Mode)
+// ========================================
+const fileRoutes = require('./routes/fileRoutes');
+app.use('/api/files', fileRoutes);
+
+// ✅ SEARCH ROUTES
+const searchRoutes = require('./routes/searchRoutes');
+app.use('/api/search', searchRoutes);
+
 
 // ========================================
 // ✅ API PROXY ROUTES

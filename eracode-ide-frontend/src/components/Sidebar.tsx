@@ -14,9 +14,9 @@ import {
   User,
   Settings,
   ChevronDown,
-  ChevronRight
+  ChevronRight,
+  LayoutGrid // ⭐ NEW
 } from 'lucide-react'
-
 
 interface SidebarItem {
   id: string
@@ -24,7 +24,6 @@ interface SidebarItem {
   label: string
   color?: string
 }
-
 
 interface SidebarSection {
   id: string
@@ -35,13 +34,11 @@ interface SidebarSection {
   items: SidebarItem[]
 }
 
-
 interface SidebarProps {
   onItemClick: (itemId: string) => void
   activeItem: string
-  onHoverChange?: (isHovered: boolean) => void  // ✅ NEW
+  onHoverChange?: (isHovered: boolean) => void
 }
-
 
 export default function Sidebar({ onItemClick, activeItem, onHoverChange }: SidebarProps) {
   // Core items - always visible (NO AI)
@@ -51,7 +48,6 @@ export default function Sidebar({ onItemClick, activeItem, onHoverChange }: Side
     { id: 'git', icon: GitBranch, label: 'Source Control' },
     { id: 'debug', icon: Bug, label: 'Debug & Run' },
   ]
-
 
   // Collapsible sections
   const [sections, setSections] = useState<SidebarSection[]>([
@@ -75,13 +71,13 @@ export default function Sidebar({ onItemClick, activeItem, onHoverChange }: Side
       color: 'text-pink-400',
       expanded: false,
       items: [
+        { id: 'projects', icon: LayoutGrid, label: 'Projects', color: 'text-purple-400' }, // ⭐ NEW
         { id: 'api', icon: Plug, label: 'API Tester', color: 'text-pink-400' },
         { id: 'database', icon: Database, label: 'Database', color: 'text-indigo-400' },
         { id: 'visualizer', icon: Network, label: 'Visualizer', color: 'text-teal-400' },
       ]
     },
   ])
-
 
   const toggleSection = (sectionId: string) => {
     setSections(sections.map(section => 
@@ -91,12 +87,11 @@ export default function Sidebar({ onItemClick, activeItem, onHoverChange }: Side
     ))
   }
 
-
   return (
     <div 
       className="w-12 bg-dark-base flex flex-col justify-between shrink-0 border-r border-dark-border overflow-y-auto hover:w-[145px] transition-all duration-200 group"
-      onMouseEnter={() => onHoverChange?.(true)}   // ✅ NEW
-      onMouseLeave={() => onHoverChange?.(false)}  // ✅ NEW
+      onMouseEnter={() => onHoverChange?.(true)}
+      onMouseLeave={() => onHoverChange?.(false)}
     >
       {/* Top Section */}
       <div className="flex flex-col">
@@ -145,10 +140,8 @@ export default function Sidebar({ onItemClick, activeItem, onHoverChange }: Side
           )
         })}
 
-
         {/* Separator */}
         <div className="w-8 h-[1px] bg-dark-border mx-auto my-1" />
-
 
         {/* Collapsible Sections */}
         {sections.map((section) => {
@@ -178,7 +171,6 @@ export default function Sidebar({ onItemClick, activeItem, onHoverChange }: Side
                 </div>
               </div>
 
-
               {section.expanded && (
                 <div className="flex flex-col bg-dark-surface/50">
                   {section.items.map((item) => {
@@ -194,6 +186,7 @@ export default function Sidebar({ onItemClick, activeItem, onHoverChange }: Side
                         'text-pink-400': '244,114,182',
                         'text-indigo-400': '129,140,248',
                         'text-teal-400': '45,212,191',
+                        'text-purple-400': '192,132,252', // ⭐ NEW - for Projects
                       }
                       return colorMap[color] || '0,122,204'
                     }
@@ -253,7 +246,6 @@ export default function Sidebar({ onItemClick, activeItem, onHoverChange }: Side
           )
         })}
       </div>
-
 
       {/* Bottom Icons */}
       <div className="flex flex-col border-t border-dark-border">

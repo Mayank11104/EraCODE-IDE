@@ -65,16 +65,16 @@ export default function ExplorerPanel() {
   const [renamingNode, setRenamingNode] = useState<string | null>(null)
   const [newName, setNewName] = useState('')
   const [hoveredNode, setHoveredNode] = useState<string | null>(null)
-  
+
   // Inline creation state
   const [creatingIn, setCreatingIn] = useState<string | null>(null)
   const [creatingMode, setCreatingMode] = useState<CreatingMode>(null)
   const [creatingName, setCreatingName] = useState('')
   const [creationError, setCreationError] = useState<string | null>(null)
-  
+
   // ✅ NEW: Clipboard state
   const [clipboard, setClipboard] = useState<ClipboardData | null>(null)
-  
+
   const fileInputRef = useRef<HTMLInputElement>(null)
   const createInputRef = useRef<HTMLInputElement>(null)
 
@@ -139,7 +139,7 @@ export default function ExplorerPanel() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [selectedNode, clipboard, rootDirectory])
 
-  const toggleFolder = (folderId: string) => {
+  const toggleFolder = async (folderId: string) => {
     setExpandedFolders((prev) => {
       const newSet = new Set(prev)
       if (newSet.has(folderId)) {
@@ -149,6 +149,23 @@ export default function ExplorerPanel() {
       }
       return newSet
     })
+
+    // Lazy load for Dev Mode (Backend Files)
+    if (!rootDirectory?.handle) {
+      const node = findNodeByPath(folderId)
+
+      if (node && node.type === 'folder' && (!node.children || node.children.length === 0) && !node.handle) {
+        const children = await fetchBackendFiles(node.path)
+        if (children.length > 0) {
+          // We need to add these children to the store
+          // Since we don't have a bulk add, we iterate
+          children.forEach(child => addNode(node.path, child))
+
+          // If we successfully fetched, strict mode might have prevented render update if we mutated, 
+          // but addNode updates store which triggers render.
+        }
+      }
+    }
   }
 
   const handleFileClick = async (node: FileNode) => {
@@ -174,29 +191,101 @@ export default function ExplorerPanel() {
     setSelectedNode(node)
   }
 
+  // Dev Mode State
+  const [showDevInput, setShowDevInput] = useState(false)
+  const [manualPath, setManualPath] = useState('')
+
   const handleOpenFolder = async () => {
-  const root = await openFolder()
-  if (root) {
-    // ✅ Ask user for the actual path - EMPTY input for manual paste
-    const userPath = prompt(
-      `📁 Folder "${root.name}" opened!\n\n` +
-      `Please paste the full folder path for terminal:\n\n` +
-      `Example: C:\\Users\\asus\\OneDrive\\Desktop\\${root.name}`
-    )
-    
-    // ✅ Store path in root directory
-    if (userPath && userPath.trim()) {
-      root.path = userPath.trim()
-      console.log('✅ Folder path set:', userPath.trim())
-    } else {
-      console.log('⚠️ No path provided')
+    const root = await openFolder()
+    if (root) {
+      // ✅ Ask user for the actual path - EMPTY input for manual paste
+      const userPath = prompt(
+        `📁 Folder "${root.name}" opened!\n\n` +
+        `Please paste the full folder path for terminal:\n\n` +
+        `Example: C:\\Users\\asus\\OneDrive\\Desktop\\${root.name}`
+      )
+
+      // ✅ Store path in root directory
+      if (userPath && userPath.trim()) {
+        root.path = userPath.trim()
+        console.log('✅ Folder path set:', userPath.trim())
+      } else {
+        console.log('⚠️ No path provided')
+      }
+
+      setRootDirectory(root)
+      setExpandedFolders(new Set([root.id]))
+      setSelectedNode(root)
     }
-    
-    setRootDirectory(root)
-    setExpandedFolders(new Set([root.id]))
-    setSelectedNode(root)
   }
-}
+
+  // Fetch files from backend (Dev Mode fallback)
+  const fetchBackendFiles = async (path: string): Promise<FileNode[]> => {
+    console.log('Fetching backend files for:', path)
+    try {
+      const res = await fetch(`http://localhost:3001/api/files/list?path=${encodeURIComponent(path)}`)
+      if (!res.ok) {
+        const errText = await res.text()
+        console.error('Backend fetch failed:', res.status, errText)
+        alert(`Failed to fetch files: ${res.status} ${res.statusText}`)
+        throw new Error('Failed to fetch files')
+      }
+
+      const files: any[] = await res.json()
+      console.log('Fetched files:', files)
+
+      const nodes = files.map((file: any) => ({
+        id: file.path,
+        name: file.name,
+        type: file.type,
+        path: file.path,
+        handle: undefined,
+        children: file.type === 'folder' ? [] : undefined
+      }))
+      return nodes
+    } catch (error) {
+      console.error('Backend file fetch error', error)
+      alert(`Error fetching files: ${error}`)
+      return []
+    }
+  }
+
+  // Modified handleManualOpen to fetch initial files
+  const handleManualOpen = async () => {
+    if (!manualPath.trim()) return
+
+    const name = manualPath.split(/[/\\]/).pop() || 'Project'
+
+    // Fetch initial children
+    console.log('Starting manual open for:', manualPath.trim())
+    const children = await fetchBackendFiles(manualPath.trim())
+
+    if (children.length === 0) {
+      console.warn('No children found or fetch failed')
+    }
+
+    const manualRoot: FileNode = {
+      id: "root-manual",
+      name: name,
+      type: "folder",
+      path: manualPath.trim(),
+      handle: undefined,
+      children: children // Populate initial children
+    }
+
+    console.log('🔧 Dev Mode: Opening manual path:', manualPath, manualRoot)
+    setRootDirectory(manualRoot)
+    setExpandedFolders(new Set([manualRoot.id]))
+    setSelectedNode(manualRoot)
+    setShowDevInput(false)
+  }
+
+  // Also need to handle refreshing/expanding folders in backend mode. 
+  // For now, let's just make the initial load work as per request.
+  // Recursion for deep folders would require modifying toggleFolder to fetch if children empty and no handle.
+
+  // Let's update buildFileTree to use backend if handle missing? No, buildFileTree takes handle.
+  // We'll stick to handleManualOpen populating root.
 
 
   const handleRefresh = async () => {
@@ -204,14 +293,39 @@ export default function ExplorerPanel() {
 
     try {
       const dirHandle = rootDirectory.handle as FileSystemDirectoryHandle
+
+      // ✅ Check permission before accessing
+      // @ts-ignore
+      if (dirHandle.queryPermission) {
+        // @ts-ignore
+        const perm = await dirHandle.queryPermission({ mode: 'read' })
+        if (perm !== 'granted') {
+          // We can't request permission automatically in useEffect, 
+          // but we will catch the error below or let UI handle it.
+          // For now, let's try to verify if it throws.
+        }
+      }
+
       const currentExpanded = new Set(expandedFolders)
-      const refreshedRoot = await buildFileTree(dirHandle, dirHandle.name)
+      // ✅ Preserve the absolute path if available!
+      const path = rootDirectory.path || dirHandle.name
+      const refreshedRoot = await buildFileTree(dirHandle, path)
       setRootDirectory(refreshedRoot)
       setExpandedFolders(currentExpanded)
       console.log('✅ Explorer refreshed successfully')
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error refreshing explorer:', error)
-      alert('Failed to refresh explorer')
+      if (error.name === 'NotAllowedError' || error.message.includes('permission')) {
+        // Show alert to user to prompt interaction
+        const performVerify = confirm('Restoring folder access requires your permission. Click OK to verify.')
+        if (performVerify) {
+          // @ts-ignore
+          await rootDirectory.handle.requestPermission({ mode: 'read' })
+          handleRefresh() // Retry
+        }
+      } else {
+        alert('Failed to refresh explorer: ' + error.message)
+      }
     }
   }
 
@@ -277,7 +391,7 @@ export default function ExplorerPanel() {
     setCreatingMode(mode)
     setCreatingName('')
     setCreationError(null)
-    
+
     setTimeout(() => createInputRef.current?.focus(), 100)
   }
 
@@ -343,7 +457,7 @@ export default function ExplorerPanel() {
       cancelCreation()
     } catch (error: any) {
       console.error('Error creating:', error)
-      
+
       if (error.message.includes('exist')) {
         setCreationError(`${creatingMode === 'file' ? 'File' : 'Folder'} already exists`)
       } else {
@@ -477,7 +591,7 @@ export default function ExplorerPanel() {
       // Generate new name: file.txt -> file copy.txt
       const nameParts = selectedNode.name.split('.')
       let newName: string
-      
+
       if (nameParts.length > 1) {
         const ext = nameParts.pop()
         newName = `${nameParts.join('.')} copy.${ext}`
@@ -617,7 +731,7 @@ export default function ExplorerPanel() {
 
   const handleRenameSubmit = async (node: FileNode) => {
     const trimmedName = newName.trim()
-    
+
     if (!trimmedName || trimmedName === node.name) {
       setRenamingNode(null)
       return
@@ -806,10 +920,10 @@ export default function ExplorerPanel() {
             className={`
               group flex items-center gap-1.5 px-2 py-1 cursor-pointer transition-all
               ${isCut ? 'opacity-50' : ''}
-              ${isSelected 
-                ? 'bg-primary/30 text-white border-l-2 border-primary' 
-                : isHovered 
-                  ? 'bg-dark-hover/80 text-white' 
+              ${isSelected
+                ? 'bg-primary/30 text-white border-l-2 border-primary'
+                : isHovered
+                  ? 'bg-dark-hover/80 text-white'
                   : 'text-text-primary hover:bg-dark-hover'
               }
             `}
@@ -866,9 +980,8 @@ export default function ExplorerPanel() {
           {node.type === 'folder' && isExpanded && creatingIn === node.path && (
             <div className="px-2 py-1">
               <div
-                className={`flex items-center gap-1.5 py-1 bg-dark-hover/50 rounded ${
-                  creationError ? 'border border-red-500/50' : ''
-                }`}
+                className={`flex items-center gap-1.5 py-1 bg-dark-hover/50 rounded ${creationError ? 'border border-red-500/50' : ''
+                  }`}
                 style={{ paddingLeft: `${(level + 1) * 12 + 8}px` }}
               >
                 <span className="ml-4 shrink-0">
@@ -906,9 +1019,9 @@ export default function ExplorerPanel() {
                   <X size={14} className="text-red-400" />
                 </button>
               </div>
-              
+
               {creationError && (
-                <div 
+                <div
                   className="flex items-center gap-1.5 px-2 py-1 text-red-400 text-[11px]"
                   style={{ paddingLeft: `${(level + 1) * 12 + 32}px` }}
                 >
@@ -936,6 +1049,25 @@ export default function ExplorerPanel() {
         <div className="flex items-center gap-1">
           {rootDirectory && (
             <>
+              {/* ✅ NEW: Open/Close Folder Actions */}
+              <button
+                onClick={handleOpenFolder}
+                className="p-1.5 hover:bg-dark-hover rounded transition-colors cursor-pointer"
+                title="Open Different Folder"
+              >
+                <FolderOpen size={16} className="text-text-primary hover:text-primary transition-colors" />
+              </button>
+
+              <button
+                onClick={() => setRootDirectory(null)}
+                className="p-1.5 hover:bg-dark-hover rounded transition-colors cursor-pointer"
+                title="Close Folder"
+              >
+                <X size={16} className="text-text-primary hover:text-red-400 transition-colors" />
+              </button>
+
+              <div className="w-[1px] h-4 bg-dark-border mx-1" />
+
               <button
                 onClick={() => startCreating('file')}
                 className="p-1.5 hover:bg-dark-hover rounded transition-colors cursor-pointer"
@@ -943,7 +1075,7 @@ export default function ExplorerPanel() {
               >
                 <FilePlus size={16} className="text-text-primary hover:text-primary transition-colors" />
               </button>
-              
+
               <button
                 onClick={() => startCreating('folder')}
                 className="p-1.5 hover:bg-dark-hover rounded transition-colors cursor-pointer"
@@ -951,7 +1083,7 @@ export default function ExplorerPanel() {
               >
                 <FolderPlus size={16} className="text-text-primary hover:text-primary transition-colors" />
               </button>
-              
+
               <button
                 onClick={handleRefresh}
                 className="p-1.5 hover:bg-dark-hover rounded transition-colors cursor-pointer"
@@ -959,7 +1091,7 @@ export default function ExplorerPanel() {
               >
                 <RefreshCw size={16} className="text-text-primary hover:text-primary transition-colors" />
               </button>
-              
+
               <button
                 onClick={handleUploadFiles}
                 className="p-1.5 hover:bg-dark-hover rounded transition-colors cursor-pointer"
@@ -997,6 +1129,57 @@ export default function ExplorerPanel() {
               >
                 Open Folder
               </button>
+
+              {/* ✅ Dev Mode: Manual Path Entry */}
+              <div className="mt-4 w-full max-w-xs">
+                {showDevInput ? (
+                  <div className="flex flex-col gap-2 animate-in fade-in slide-in-from-top-2">
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={manualPath}
+                        onChange={(e) => setManualPath(e.target.value)}
+                        placeholder="E:/path/to/project"
+                        className="flex-1 bg-dark-surface border border-dark-border rounded px-2 py-1 text-xs text-text-primary focus:outline-none focus:border-primary"
+                        onKeyDown={(e) => e.key === 'Enter' && handleManualOpen()}
+                      />
+                      <button
+                        onClick={handleManualOpen}
+                        className="px-2 py-1 bg-accent text-white rounded text-xs hover:bg-accent/80"
+                      >
+                        Go
+                      </button>
+                      <button
+                        onClick={() => setShowDevInput(false)}
+                        className="p-1 text-text-secondary hover:text-text-primary"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+
+                    <button
+                      onClick={async () => {
+                        if (confirm('This will clear all saved state and reload. Are you sure?')) {
+                          await window.indexedDB.deleteDatabase('eracode-db')
+                          localStorage.clear()
+                          window.location.reload()
+                        }
+                      }}
+                      className="text-[10px] text-red-400 hover:text-red-300 underline text-center"
+                    >
+                      Reset App State (Fix Stuck Folder)
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setShowDevInput(true)}
+                    className="text-[10px] text-text-secondary hover:text-primary underline decoration-dotted"
+                  >
+                    Dev: Enter Path Manually
+                  </button>
+                )}
+              </div>
+
               {!isFileSystemAccessSupported() && (
                 <p className="mt-3 text-red-400 text-[10px]">
                   ⚠️ File System API not supported. Use Chrome or Edge.

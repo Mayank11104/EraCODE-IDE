@@ -1,7 +1,7 @@
-import { useState } from 'react'
-import { 
-  Bot, 
-  MoreHorizontal, 
+import { useEffect, useState } from 'react'
+import {
+  Bot,
+  MoreHorizontal,
   X,
   RefreshCw,
   Plus,
@@ -10,56 +10,47 @@ import {
   ChevronDown,
   Sparkles,
   Zap,
-  Eye
+  Eye,
+  Check,
+  XCircle,
+  Copy
 } from 'lucide-react'
-
-interface Message {
-  id: string
-  role: 'user' | 'assistant'
-  content: string
-  timestamp: Date
-}
+import { useAgentStore } from '../stores/agentStore'
+// import { useEditorStore } from '../stores/editorStore' // Just in case we need it directly
 
 interface AgentPanelProps {
-  onClose: () => void 
+  onClose: () => void
 }
 
 export default function AgentPanel({ onClose }: AgentPanelProps) {
   const [activeTab, setActiveTab] = useState('chat')
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: '1',
-      role: 'assistant',
-      content: 'Hello! I\'m EraCode AI Assistant. How can I help you with your code today?',
-      timestamp: new Date()
-    }
-  ])
   const [input, setInput] = useState('')
-  const [isThinking, setIsThinking] = useState(false)
+  const [copiedId, setCopiedId] = useState<string | null>(null)
+
+  const handleCopy = (id: string, content: string) => {
+    navigator.clipboard.writeText(content)
+    setCopiedId(id)
+    setTimeout(() => setCopiedId(null), 2000)
+  }
+
+  // Connect to store
+  const {
+    messages,
+    isThinking,
+    sendMessage,
+    initializeSession,
+    approveAction,
+    rejectAction
+  } = useAgentStore()
+
+  useEffect(() => {
+    initializeSession()
+  }, [])
 
   const handleSend = () => {
     if (!input.trim()) return
-
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      role: 'user',
-      content: input,
-      timestamp: new Date()
-    }
-    setMessages([...messages, userMessage])
+    sendMessage(input)
     setInput('')
-
-    setIsThinking(true)
-    setTimeout(() => {
-      const aiMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: 'I\'m here to help! This is a demo response. I can assist with code review, debugging, refactoring, and more.',
-        timestamp: new Date()
-      }
-      setMessages(prev => [...prev, aiMessage])
-      setIsThinking(false)
-    }, 1500)
   }
 
   return (
@@ -80,8 +71,8 @@ export default function AgentPanel({ onClose }: AgentPanelProps) {
           <button className="p-1 hover:bg-white/10 rounded transition-colors">
             <MoreHorizontal size={16} className="text-text-secondary hover:text-white" />
           </button>
-          {/* ✅ FIXED: X button now closes the panel */}
-          <button 
+          {/* Close button */}
+          <button
             onClick={onClose}
             className="p-1 hover:bg-red-500/20 hover:text-red-400 rounded transition-colors"
             title="Close Agent Panel"
@@ -95,33 +86,30 @@ export default function AgentPanel({ onClose }: AgentPanelProps) {
       <div className="flex border-b border-dark-border bg-dark-header">
         <button
           onClick={() => setActiveTab('chat')}
-          className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-[12px] font-medium transition-all ${
-            activeTab === 'chat'
-              ? 'text-purple-400 border-b-2 border-purple-400 bg-dark-surface/50'
-              : 'text-text-secondary hover:text-white hover:bg-white/5'
-          }`}
+          className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-[12px] font-medium transition-all ${activeTab === 'chat'
+            ? 'text-purple-400 border-b-2 border-purple-400 bg-dark-surface/50'
+            : 'text-text-secondary hover:text-white hover:bg-white/5'
+            }`}
         >
           <Bot size={14} />
           Chat
         </button>
         <button
           onClick={() => setActiveTab('workflows')}
-          className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-[12px] font-medium transition-all ${
-            activeTab === 'workflows'
-              ? 'text-yellow-400 border-b-2 border-yellow-400 bg-dark-surface/50'
-              : 'text-text-secondary hover:text-white hover:bg-white/5'
-          }`}
+          className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-[12px] font-medium transition-all ${activeTab === 'workflows'
+            ? 'text-yellow-400 border-b-2 border-yellow-400 bg-dark-surface/50'
+            : 'text-text-secondary hover:text-white hover:bg-white/5'
+            }`}
         >
           <Zap size={14} />
           Workflows
         </button>
         <button
           onClick={() => setActiveTab('review')}
-          className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-[12px] font-medium transition-all ${
-            activeTab === 'review'
-              ? 'text-blue-400 border-b-2 border-blue-400 bg-dark-surface/50'
-              : 'text-text-secondary hover:text-white hover:bg-white/5'
-          }`}
+          className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-[12px] font-medium transition-all ${activeTab === 'review'
+            ? 'text-blue-400 border-b-2 border-blue-400 bg-dark-surface/50'
+            : 'text-text-secondary hover:text-white hover:bg-white/5'
+            }`}
         >
           <Eye size={14} />
           Review
@@ -137,27 +125,65 @@ export default function AgentPanel({ onClose }: AgentPanelProps) {
       {activeTab === 'chat' && (
         <>
           {/* Chat Messages */}
-          <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+          <div className="flex-1 overflow-y-auto p-4 space-y-4">
             {messages.map((message) => (
               <div
                 key={message.id}
-                className={`flex flex-col ${
-                  message.role === 'user' ? 'items-end' : 'items-start'
-                }`}
+                className={`flex flex-col ${message.role === 'user' ? 'items-end' : 'items-start'
+                  }`}
               >
                 <div
-                  className={`max-w-[85%] rounded-lg px-4 py-2.5 ${
-                    message.role === 'user'
-                      ? 'bg-primary/20 border border-primary/30 text-white'
-                      : 'bg-dark-hover border border-dark-border text-text-primary'
-                  }`}
+                  className={`max-w-[85%] rounded-lg px-4 py-2.5 relative group ${message.role === 'user'
+                    ? 'bg-primary/20 border border-primary/30 text-white'
+                    : 'bg-dark-hover border border-dark-border text-text-primary'
+                    }`}
                 >
-                  <p className="text-[13px] leading-relaxed whitespace-pre-wrap">
+                  <p className="text-[13px] leading-relaxed whitespace-pre-wrap pr-4">
                     {message.content}
                   </p>
+                  <button
+                    onClick={() => handleCopy(message.id, message.content)}
+                    className="absolute top-2 right-2 p-1 text-text-secondary hover:text-white opacity-0 group-hover:opacity-100 transition-opacity bg-dark-hover/50 rounded"
+                    title="Copy text"
+                  >
+                    {copiedId === message.id ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
+                  </button>
                 </div>
+
+                {/* Pending Approvals */}
+                {message.role === 'assistant' && message.pendingApprovals && message.pendingApprovals.length > 0 && (
+                  <div className="mt-2 w-full max-w-[85%] space-y-2">
+                    {message.pendingApprovals.map(approval => (
+                      <div key={approval.id} className="bg-dark-surface border border-yellow-500/30 rounded-lg p-3">
+                        <div className="flex items-center gap-2 mb-2 text-yellow-400">
+                          <Zap size={14} />
+                          <span className="text-xs font-semibold">Approval Required</span>
+                        </div>
+                        <div className="text-xs text-text-secondary mb-3">
+                          {approval.type === 'code_edit' && `Edit file: ${approval.artifact.content.file}`}
+                          {approval.type === 'terminal_command' && `Run command: ${approval.artifact.content.command}`}
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => approveAction(approval.id)}
+                            className="flex-1 flex items-center justify-center gap-1 py-1.5 bg-green-500/20 text-green-400 border border-green-500/30 rounded hover:bg-green-500/30 transition-colors text-xs"
+                          >
+                            <Check size={12} /> Approve
+                          </button>
+                          <button
+                            onClick={() => rejectAction(approval.id)}
+                            className="flex-1 flex items-center justify-center gap-1 py-1.5 bg-red-500/20 text-red-400 border border-red-500/30 rounded hover:bg-red-500/30 transition-colors text-xs"
+                          >
+                            <XCircle size={12} /> Reject
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
                 <span className="text-[10px] text-text-secondary mt-1 px-2">
-                  {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  {new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </span>
               </div>
             ))}
@@ -191,6 +217,7 @@ export default function AgentPanel({ onClose }: AgentPanelProps) {
                       handleSend()
                     }
                   }}
+                  disabled={isThinking}
                   placeholder="Ask anything (Ctrl+L), @ to mention, / for workflow"
                   className="w-full bg-transparent border-none text-[13px] text-text-primary p-3 resize-none focus:outline-none placeholder-text-secondary/60 h-[80px]"
                 />
@@ -218,10 +245,10 @@ export default function AgentPanel({ onClose }: AgentPanelProps) {
                     <button className="p-1 hover:bg-white/10 rounded transition-colors">
                       <Mic size={16} className="text-text-secondary hover:text-white" />
                     </button>
-                    <button 
+                    <button
                       onClick={handleSend}
                       className="p-1.5 bg-primary hover:bg-blue-600 rounded transition-colors disabled:opacity-50"
-                      disabled={!input.trim()}
+                      disabled={!input.trim() || isThinking}
                     >
                       <Send size={14} className="text-white" />
                     </button>
@@ -245,7 +272,7 @@ export default function AgentPanel({ onClose }: AgentPanelProps) {
             </div>
             <p className="text-xs text-text-secondary">Auto-generate unit tests for your code</p>
           </div>
-          
+
           <div className="p-4 bg-dark-hover rounded-lg border border-yellow-400/30 hover:border-yellow-400/50 cursor-pointer transition-colors">
             <div className="flex items-center gap-2 mb-2">
               <Zap size={16} className="text-yellow-400" />
@@ -253,7 +280,7 @@ export default function AgentPanel({ onClose }: AgentPanelProps) {
             </div>
             <p className="text-xs text-text-secondary">Improve code structure and readability</p>
           </div>
-          
+
           <div className="p-4 bg-dark-hover rounded-lg border border-yellow-400/30 hover:border-yellow-400/50 cursor-pointer transition-colors">
             <div className="flex items-center gap-2 mb-2">
               <Zap size={16} className="text-yellow-400" />
@@ -281,3 +308,4 @@ export default function AgentPanel({ onClose }: AgentPanelProps) {
     </div>
   )
 }
+
