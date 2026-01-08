@@ -82,7 +82,6 @@ def ask_agent(request: str):
         print(content)
         return None
 
-
 if __name__ == "__main__":
     print("\n" + "=" * 60)
     print("🚀 EraCode AI Agent - Coding Test")

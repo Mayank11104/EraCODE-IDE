@@ -18,6 +18,7 @@ app.add_middleware(
         settings.NODE_BACKEND_URL,
         "http://localhost:3000",  # Frontend
         "http://localhost:3001",  # Node.js backend
+        "http://localhost:5173",  # Vite Frontend
     ],
     allow_credentials=True,
     allow_methods=["*"],
