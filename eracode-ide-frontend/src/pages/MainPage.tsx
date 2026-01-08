@@ -46,7 +46,7 @@ export default function MainPage() {
   const [showLeftPanel, setShowLeftPanel] = useState(true)
   
   // ✅ API Tester width state - Default 455px, Range 455-800px
-  const [apiPanelWidth, setApiPanelWidth] = useState(455)
+  const [apiPanelWidth, setApiPanelWidth] = useState(616)
   const [isResizingApi, setIsResizingApi] = useState(false)
   
   // Right agent panel state
