@@ -30,37 +30,41 @@ import { useEditorStore } from '../stores/editorStore'
 
 
 // Import types
-import { TerminalType, CloudTerminalConfig } from '../types/terminal.types'
+import type { TerminalType, CloudTerminalConfig } from '../types/terminal.types'
 
 
 // ✅ Import handle type
-import { WebSocketTerminalHandle } from '../components/WebSocketTerminal'
+// ✅ Import handle type
+import type { WebSocketTerminalHandle } from '../components/WebSocketTerminal'
 
 
 export default function MainPage() {
   // Store
   const openFiles = useEditorStore((state) => state.openFiles)
-  
+
   // Left panel state
   const [activeLeftPanel, setActiveLeftPanel] = useState('explorer')
   const [showLeftPanel, setShowLeftPanel] = useState(true)
-  
+
   // ✅ API Tester width state - Default 455px, Range 455-800px
   const [apiPanelWidth, setApiPanelWidth] = useState(616)
   const [isResizingApi, setIsResizingApi] = useState(false)
-  
+  // ✅ Visualizer width state - Default 800px
+  const [visualizerPanelWidth, setVisualizerPanelWidth] = useState(1000)
+  const [isResizingVisualizer, setIsResizingVisualizer] = useState(false)
+
   // Right agent panel state
   const [showAgentPanel, setShowAgentPanel] = useState(false)
-  
+
   // Terminal state
   const [showTerminal, setShowTerminal] = useState(false)
   const [showTerminalSelector, setShowTerminalSelector] = useState(false)
   const [terminalType, setTerminalType] = useState<TerminalType | null>(null)
   const [cloudConfig, setCloudConfig] = useState<CloudTerminalConfig>()
-  
+
   // ✅ Terminal ref for handling close
   const terminalRef = useRef<WebSocketTerminalHandle>(null)
-  
+
   // Center page state - starts as welcome, switches to editor once a file is opened
   const [showEditor, setShowEditor] = useState(false)
 
@@ -85,31 +89,37 @@ export default function MainPage() {
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
-      if (!isResizingApi) return
-      
+      if (!isResizingApi && !isResizingVisualizer) return
+
       const sidebarWidth = isSidebarHovered ? 145 : 48
       const newWidth = e.clientX - sidebarWidth
-      
-      // ✅ Min: 455px, Max: 800px
-      const clampedWidth = Math.max(455, Math.min(newWidth, 800))
-      
-      setApiPanelWidth(clampedWidth)
+
+      if (isResizingApi) {
+        // ✅ Min: 455px, Max: 800px
+        const clampedWidth = Math.max(1000, Math.min(newWidth, 1000))
+        setApiPanelWidth(clampedWidth)
+      } else if (isResizingVisualizer) {
+        // ✅ Min: 455px, Max: 1200px (Visualizer needs more space)
+        const clampedWidth = Math.max(1000, Math.min(newWidth, 1200))
+        setVisualizerPanelWidth(clampedWidth)
+      }
     }
-    
+
     const handleMouseUp = () => {
       setIsResizingApi(false)
+      setIsResizingVisualizer(false)
     }
-    
-    if (isResizingApi) {
+
+    if (isResizingApi || isResizingVisualizer) {
       document.addEventListener('mousemove', handleMouseMove)
       document.addEventListener('mouseup', handleMouseUp)
-      
+
       return () => {
         document.removeEventListener('mousemove', handleMouseMove)
         document.removeEventListener('mouseup', handleMouseUp)
       }
     }
-  }, [isResizingApi, isSidebarHovered])
+  }, [isResizingApi, isResizingVisualizer, isSidebarHovered])
 
 
   const handleSidebarClick = (panelId: string) => {
@@ -164,9 +174,12 @@ export default function MainPage() {
   const getTerminalLeftPosition = () => {
     const sidebarWidth = isSidebarHovered ? 145 : 48
     if (!showLeftPanel) return sidebarWidth
-    
-    // ✅ ONLY use dynamic width for API panel, fixed 250px for others
-    const panelWidth = activeLeftPanel === 'api' ? apiPanelWidth : 250
+
+    // ✅ ONLY use dynamic width for API panel and Visualizer, fixed 250px for others
+    let panelWidth = 250
+    if (activeLeftPanel === 'api') panelWidth = apiPanelWidth
+    if (activeLeftPanel === 'visualizer') panelWidth = visualizerPanelWidth
+
     return sidebarWidth + panelWidth
   }
 
@@ -192,25 +205,29 @@ export default function MainPage() {
       }
     })()
 
-    // ✅ ONLY API panel is resizable
+    // ✅ ONLY API and Visualizer panels are resizable
     const isApiPanel = activeLeftPanel === 'api'
-    const width = isApiPanel ? apiPanelWidth : 250
+    const isVisualizerPanel = activeLeftPanel === 'visualizer'
+
+    let width = 250
+    if (isApiPanel) width = apiPanelWidth
+    if (isVisualizerPanel) width = visualizerPanelWidth
 
     return (
-      <div 
+      <div
         className="h-full bg-dark-surface border-r border-dark-border relative shrink-0"
         style={{ width: `${width}px` }}
       >
         {panelContent}
-        
+
         {/* ✅ Resize handle ONLY for API panel */}
         {isApiPanel && (
           <div
             onMouseDown={handleApiResizeStart}
             className={`
               absolute top-0 right-0 w-1 h-full cursor-col-resize transition-all z-10
-              ${isResizingApi 
-                ? 'bg-blue-500 w-1' 
+              ${isResizingApi
+                ? 'bg-blue-500 w-1'
                 : 'hover:bg-blue-500/50'
               }
             `}
@@ -219,6 +236,30 @@ export default function MainPage() {
             {isResizingApi && (
               <div className="absolute top-2 -right-16 bg-dark-bg border border-blue-500 rounded px-2 py-1 text-xs text-blue-400 shadow-lg pointer-events-none">
                 {apiPanelWidth}px
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ✅ Resize handle ONLY for Visualizer panel */}
+        {isVisualizerPanel && (
+          <div
+            onMouseDown={(e) => {
+              setIsResizingVisualizer(true)
+              e.preventDefault()
+            }}
+            className={`
+              absolute top-0 right-0 w-1 h-full cursor-col-resize transition-all z-10
+              ${isResizingVisualizer
+                ? 'bg-purple-500 w-1'
+                : 'hover:bg-purple-500/50'
+              }
+            `}
+            title="Drag to resize Visualizer panel"
+          >
+            {isResizingVisualizer && (
+              <div className="absolute top-2 -right-16 bg-dark-bg border border-purple-500 rounded px-2 py-1 text-xs text-purple-400 shadow-lg pointer-events-none">
+                {visualizerPanelWidth}px
               </div>
             )}
           </div>
@@ -250,13 +291,12 @@ export default function MainPage() {
             `}
             title="Toggle Terminal"
           >
-            <TerminalIcon 
-              size={18} 
-              className={`transition-all ${
-                showTerminal 
-                  ? 'drop-shadow-[0_0_8px_rgba(59,130,246,1)]' 
-                  : ''
-              }`}
+            <TerminalIcon
+              size={18}
+              className={`transition-all ${showTerminal
+                ? 'drop-shadow-[0_0_8px_rgba(59,130,246,1)]'
+                : ''
+                }`}
             />
             <span className="text-xs font-medium">
               {showTerminal ? 'Terminal Active' : 'Open Terminal'}
@@ -279,13 +319,12 @@ export default function MainPage() {
             `}
             title="Toggle AI Agent"
           >
-            <Bot 
-              size={18} 
-              className={`transition-all ${
-                showAgentPanel 
-                  ? 'drop-shadow-[0_0_8px_rgba(168,85,247,1)]' 
-                  : ''
-              }`}
+            <Bot
+              size={18}
+              className={`transition-all ${showAgentPanel
+                ? 'drop-shadow-[0_0_8px_rgba(168,85,247,1)]'
+                : ''
+                }`}
             />
             <span className="text-xs font-medium">
               {showAgentPanel ? 'AI Agent Active' : 'Open AI Agent'}
@@ -301,7 +340,7 @@ export default function MainPage() {
       {/* Main Content Area */}
       <div className="flex flex-1 overflow-hidden relative">
         {/* Left: Sidebar (Always visible - 48px) */}
-        <Sidebar 
+        <Sidebar
           onItemClick={handleSidebarClick}
           activeItem={showLeftPanel ? activeLeftPanel : ''}
           onHoverChange={setIsSidebarHovered}
@@ -321,7 +360,7 @@ export default function MainPage() {
 
 
           {/* Right: Agent Panel */}
-          <div 
+          <div
             className={`
               transition-all duration-300 ease-in-out overflow-hidden
               ${showAgentPanel ? 'w-[340px] opacity-100' : 'w-0 opacity-0'}
@@ -343,14 +382,14 @@ export default function MainPage() {
 
         {/* Bottom Section: Terminal - DYNAMIC POSITIONING */}
         {showTerminal && (
-          <div 
+          <div
             className="absolute bottom-0 right-0 z-50 transition-all duration-200"
             style={{
               left: `${getTerminalLeftPosition()}px`,
               right: showAgentPanel ? '340px' : '0'
             }}
           >
-            <TerminalPage 
+            <TerminalPage
               ref={terminalRef}
               onClose={handleTerminalPanelClose}
               agentPanelOpen={showAgentPanel}
