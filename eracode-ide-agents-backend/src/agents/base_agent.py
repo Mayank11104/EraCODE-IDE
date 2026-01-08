@@ -4,7 +4,8 @@ from abc import ABC, abstractmethod
 from typing import Any
 import json
 
-from langchain_groq import ChatGroq
+
+from langchain_openai import AzureChatOpenAI
 from src.config.settings import settings
 from src.utils.logger import logger
 
@@ -17,15 +18,24 @@ class BaseAgent(ABC):
         self.llm = self._initialize_llm()
         logger.info(f"🤖 Initialized {name}")
 
-    def _initialize_llm(self) -> ChatGroq:
-        if settings.MODEL_PROVIDER == "groq":
-            return ChatGroq(
-                model=settings.MODEL_NAME,
+    def _initialize_llm(self) -> Any:
+        if settings.MODEL_PROVIDER == "azure":
+            return AzureChatOpenAI(
+                azure_deployment=settings.AZURE_OPENAI_DEPLOYMENT_NAME,
+                openai_api_version=settings.AZURE_OPENAI_API_VERSION,
+                azure_endpoint=settings.AZURE_OPENAI_ENDPOINT,
+                api_key=settings.AZURE_OPENAI_API_KEY,
                 temperature=settings.TEMPERATURE,
-                max_tokens=settings.MAX_TOKENS,
-                groq_api_key=settings.GROQ_API_KEY,
             )
-        raise ValueError(f"Unsupported model provider: {settings.MODEL_PROVIDER}")
+
+        #if settings.MODEL_PROVIDER == "groq":
+        #    return ChatGroq(
+        #        model=settings.MODEL_NAME,
+        #        temperature=settings.TEMPERATURE,
+        #        max_tokens=settings.MAX_TOKENS,
+        #        groq_api_key=settings.GROQ_API_KEY,
+        #    )
+        #raise ValueError(f"Unsupported model provider: {settings.MODEL_PROVIDER}")
 
     @abstractmethod
     async def execute(self, task: str, context: dict[str, Any]) -> dict[str, Any]:

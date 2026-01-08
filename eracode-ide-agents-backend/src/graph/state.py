@@ -37,3 +37,6 @@ class AgentState(TypedDict):
     artifacts: list[dict]
     iteration_count: int
     error: str | None
+    
+    # Supervisor direct response
+    supervisor_message: str | None

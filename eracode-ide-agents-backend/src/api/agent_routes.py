@@ -103,24 +103,27 @@ async def execute_agent_task(task_id: str, request: AgentRequest):
                 res = final_state["analyzer_result"]
                 logger.info(f"🔍 DEBUG: analyzer_result: {res}")
                 
-                # Use the natural language summary if available
+                # Construct comprehensive message
+                parts = []
+                
                 if res.get("summary"):
-                    message = res["summary"]
-                    # Optionally append file list if not too long
-                    if res.get("relevant_files") and len(res["relevant_files"]) <= 5:
-                         files = [f.split('\\')[-1] for f in res["relevant_files"]] # Just filenames
-                         message += f"\n\n**Analysed:** {', '.join(files)}"
-                else:
-                    # Fallback to structured format
-                    summary_parts = []
-                    if res.get("project_structure"):
-                        summary_parts.append(f"**Project Structure:**\n{res['project_structure']}")
-                    if res.get("relevant_files"):
-                        summary_parts.append(f"\n**Relevant Files:**\n- " + "\n- ".join(res['relevant_files']))
-                    if res.get("recommendations"):
-                        summary_parts.append(f"\n**Recommendations:**\n{res['recommendations']}")
+                    parts.append(res["summary"])
+                
+                if res.get("project_structure"):
+                    parts.append(f"\n**Project Structure:**\n{res['project_structure']}")
                     
-                    message = "\n".join(summary_parts) if summary_parts else "Analysis completed."
+                if res.get("recommendations"):
+                    parts.append(f"\n**Recommendations:**\n{res['recommendations']}")
+
+                if res.get("relevant_files"):
+                    files = res['relevant_files']
+                    # Show up to 10 files to avoid clutter
+                    display_files = [f.split('\\')[-1].split('/')[-1] for f in files[:10]]
+                    parts.append(f"\n**Relevant Files:**\n- " + "\n- ".join(display_files))
+                    if len(files) > 10:
+                        parts.append(f"- ...and {len(files) - 10} more")
+                
+                message = "\n".join(parts) if parts else "Analysis completed."
                 
             elif final_state.get("debug_result"):
                 res = final_state["debug_result"]
@@ -139,6 +142,9 @@ async def execute_agent_task(task_id: str, request: AgentRequest):
                 cmds = [c.get("command") for c in res.get("commands", [])]
                 message = f"**Commands Generated:**\n" + "\n".join([f"`{c}`" for c in cmds])
                 
+            elif final_state.get("supervisor_message"):
+                 message = final_state["supervisor_message"]
+
             else:
                 message = f"Task completed: {final_state.get('current_task', 'Success')}"
         
