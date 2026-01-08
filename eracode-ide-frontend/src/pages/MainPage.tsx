@@ -4,7 +4,6 @@ import Sidebar from '../components/Sidebar'
 import AgentPanel from '../components/AgentPanel'
 import TerminalTypeSelector from '../components/TerminalTypeSelector'
 
-
 // Import LEFT panels
 import ExplorerPanel from '../components/panels/ExplorerPanel'
 import SearchPanel from '../components/panels/SearchPanel'
@@ -17,25 +16,21 @@ import MonitoringPanel from '../components/panels/MonitoringPanel'
 import APITesterPanel from '../components/panels/APITesterPanel'
 import DatabasePanel from '../components/panels/DatabasePanel'
 import VisualizerPanel from '../components/panels/VisualizerPanel'
-
+import ProjectsPanel from '../components/panels/ProjectsPanel'
 
 // Import CENTER pages
 import WelcomePage from './WelcomePage'
 import EditorPage from './EditorPage'
 import TerminalPage from './TerminalPage'
 
-
 // Import store
 import { useEditorStore } from '../stores/editorStore'
-
 
 // Import types
 import { TerminalType, CloudTerminalConfig } from '../types/terminal.types'
 
-
 // ✅ Import handle type
 import { WebSocketTerminalHandle } from '../components/WebSocketTerminal'
-
 
 export default function MainPage() {
   // Store
@@ -44,8 +39,9 @@ export default function MainPage() {
   // Left panel state
   const [activeLeftPanel, setActiveLeftPanel] = useState('explorer')
   const [showLeftPanel, setShowLeftPanel] = useState(true)
+  const [previousPanel, setPreviousPanel] = useState<string | null>(null) // ⭐ NEW - Track previous panel
   
-  // ✅ API Tester width state - Default 455px, Range 455-800px
+  // ✅ API Tester width state - Default 616px, Range 455-800px
   const [apiPanelWidth, setApiPanelWidth] = useState(616)
   const [isResizingApi, setIsResizingApi] = useState(false)
   
@@ -64,10 +60,8 @@ export default function MainPage() {
   // Center page state - starts as welcome, switches to editor once a file is opened
   const [showEditor, setShowEditor] = useState(false)
 
-
   // Track sidebar hover state
   const [isSidebarHovered, setIsSidebarHovered] = useState(false)
-
 
   // Auto-switch to Editor when a file is opened (PERMANENT for session)
   useEffect(() => {
@@ -75,7 +69,6 @@ export default function MainPage() {
       setShowEditor(true)
     }
   }, [openFiles.length, showEditor])
-
 
   // ✅ Handle API panel resize - Min 455px, Max 800px
   const handleApiResizeStart = (e: React.MouseEvent) => {
@@ -111,16 +104,34 @@ export default function MainPage() {
     }
   }, [isResizingApi, isSidebarHovered])
 
-
+  // ⭐ UPDATED - Handle sidebar click with Projects panel memory
   const handleSidebarClick = (panelId: string) => {
-    if (activeLeftPanel === panelId) {
-      setShowLeftPanel(!showLeftPanel)
+    // If clicking Projects
+    if (panelId === 'projects') {
+      if (activeLeftPanel === 'projects') {
+        // Closing Projects - restore previous panel
+        if (previousPanel) {
+          setActiveLeftPanel(previousPanel)
+          setPreviousPanel(null)
+        } else {
+          setActiveLeftPanel('explorer')
+        }
+      } else {
+        // Opening Projects - save current panel
+        setPreviousPanel(activeLeftPanel)
+        setActiveLeftPanel('projects')
+        setShowLeftPanel(true)
+      }
     } else {
-      setActiveLeftPanel(panelId)
-      setShowLeftPanel(true)
+      // Normal panel behavior
+      if (activeLeftPanel === panelId) {
+        setShowLeftPanel(!showLeftPanel)
+      } else {
+        setActiveLeftPanel(panelId)
+        setShowLeftPanel(true)
+      }
     }
   }
-
 
   // ✅ Handle terminal toggle with cloud terminal check
   const handleTerminalToggle = () => {
@@ -136,7 +147,6 @@ export default function MainPage() {
     }
   }
 
-
   // Handle terminal type selection
   const handleTerminalTypeSelect = (type: TerminalType, config?: CloudTerminalConfig) => {
     setTerminalType(type)
@@ -145,12 +155,10 @@ export default function MainPage() {
     setShowTerminal(true)
   }
 
-
   // Handle terminal selector cancel
   const handleTerminalSelectorCancel = () => {
     setShowTerminalSelector(false)
   }
-
 
   // ✅ Handle terminal panel close
   const handleTerminalPanelClose = () => {
@@ -159,17 +167,21 @@ export default function MainPage() {
     setCloudConfig(undefined)
   }
 
-
-  // ✅ Calculate terminal left position - Uses API panel width ONLY when API is active
+  // ✅ Calculate terminal left position - Projects panel is 1400px fixed
   const getTerminalLeftPosition = () => {
     const sidebarWidth = isSidebarHovered ? 145 : 48
     if (!showLeftPanel) return sidebarWidth
     
-    // ✅ ONLY use dynamic width for API panel, fixed 250px for others
-    const panelWidth = activeLeftPanel === 'api' ? apiPanelWidth : 250
+    // ✅ Projects panel: 1400px fixed, API: dynamic, Others: 250px
+    let panelWidth = 250
+    if (activeLeftPanel === 'api') {
+      panelWidth = apiPanelWidth
+    } else if (activeLeftPanel === 'projects') {
+      panelWidth = 1400
+    }
+    
     return sidebarWidth + panelWidth
   }
-
 
   // ✅ Render left panel - ONLY API panel gets resize handle
   const renderLeftPanel = () => {
@@ -188,17 +200,25 @@ export default function MainPage() {
         case 'api': return <APITesterPanel />
         case 'database': return <DatabasePanel />
         case 'visualizer': return <VisualizerPanel />
+        case 'projects': return <ProjectsPanel />
         default: return <ExplorerPanel />
       }
     })()
 
-    // ✅ ONLY API panel is resizable
+    // ✅ Projects panel: 1400px fixed, API: resizable, Others: 250px
     const isApiPanel = activeLeftPanel === 'api'
-    const width = isApiPanel ? apiPanelWidth : 250
+    const isProjectsPanel = activeLeftPanel === 'projects'
+    
+    let width = 250
+    if (isApiPanel) {
+      width = apiPanelWidth
+    } else if (isProjectsPanel) {
+      width = 1400
+    }
 
     return (
       <div 
-        className="h-full bg-dark-surface border-r border-dark-border relative shrink-0"
+        className="h-full bg-dark-base border-r border-dark-border relative shrink-0 z-20"
         style={{ width: `${width}px` }}
       >
         {panelContent}
@@ -227,7 +247,6 @@ export default function MainPage() {
     )
   }
 
-
   return (
     <div className="h-screen w-full flex flex-col bg-dark-surface text-text-primary overflow-hidden">
       {/* Top Bar with Terminal & AI Agent Buttons */}
@@ -235,7 +254,6 @@ export default function MainPage() {
         <div className="flex items-center gap-3">
           <h1 className="text-lg font-bold text-text-primary">EraCODE IDE</h1>
         </div>
-
 
         <div className="flex items-center gap-3">
           {/* Terminal Toggle Button */}
@@ -265,7 +283,6 @@ export default function MainPage() {
               Ctrl+`
             </kbd>
           </button>
-
 
           {/* AI Agent Toggle Button */}
           <button
@@ -297,7 +314,6 @@ export default function MainPage() {
         </div>
       </div>
 
-
       {/* Main Content Area */}
       <div className="flex flex-1 overflow-hidden relative">
         {/* Left: Sidebar (Always visible - 48px) */}
@@ -307,18 +323,17 @@ export default function MainPage() {
           onHoverChange={setIsSidebarHovered}
         />
 
-
         {/* Everything else to the right of sidebar */}
         <div className="flex flex-1 overflow-hidden">
-          {/* ✅ Left Panel - Only API is resizable */}
+          {/* ✅ Left Panel - Only API is resizable, Projects is 1400px fixed */}
           {renderLeftPanel()}
 
-
-          {/* Center: Welcome OR Editor */}
-          <div className="flex-1 flex flex-col min-w-0">
-            {showEditor ? <EditorPage /> : <WelcomePage />}
-          </div>
-
+          {/* Center: Welcome OR Editor - HIDE when Projects panel is open */}
+          {activeLeftPanel !== 'projects' && (
+            <div className="flex-1 flex flex-col min-w-0">
+              {showEditor ? <EditorPage /> : <WelcomePage />}
+            </div>
+          )}
 
           {/* Right: Agent Panel */}
           <div 
@@ -331,7 +346,6 @@ export default function MainPage() {
           </div>
         </div>
 
-
         {/* Terminal Type Selector Modal */}
         {showTerminalSelector && (
           <TerminalTypeSelector
@@ -339,7 +353,6 @@ export default function MainPage() {
             onCancel={handleTerminalSelectorCancel}
           />
         )}
-
 
         {/* Bottom Section: Terminal - DYNAMIC POSITIONING */}
         {showTerminal && (
@@ -361,7 +374,6 @@ export default function MainPage() {
           </div>
         )}
       </div>
-
 
     </div>
   )
