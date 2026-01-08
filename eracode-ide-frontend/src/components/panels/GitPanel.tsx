@@ -18,6 +18,7 @@ import {
   ChevronDown
 } from 'lucide-react'
 import { useFileSystemStore } from '../../stores/fileSystemStore'
+import ContextMenu from '../ContextMenu'
 
 interface GitStatus {
   isRepo: boolean
@@ -99,6 +100,8 @@ export default function GitPanel() {
   const [loading, setLoading] = useState(false)
   const [commitMessage, setCommitMessage] = useState('')
   const [pushPullLoading, setPushPullLoading] = useState(false)
+  const [showMenu, setShowMenu] = useState(false)
+  const menuButtonRef = useRef<HTMLButtonElement>(null)
 
   // Sections state
   const [expanded, setExpanded] = useState({ staged: true, changes: true, graph: true })
@@ -199,7 +202,8 @@ export default function GitPanel() {
         body: JSON.stringify({ cwd: rootDirectory.path, message: commitMessage })
       })
       setCommitMessage('')
-      fetchStatus() // This will trigger log refresh too via dependency
+      fetchStatus()
+      fetchLog() // Force graph refresh explicitly
     } catch (error) {
       console.error('Failed to commit', error)
       alert('Failed to commit')
@@ -322,22 +326,51 @@ export default function GitPanel() {
   return (
     <div className="h-full flex flex-col bg-dark-surface">
       {/* Header */}
-      <div className="p-3 border-b border-dark-border flex items-center justify-between bg-dark-base">
+      <div className="p-3 border-b border-dark-border flex items-center justify-between bg-dark-base relative">
         <span className="font-medium text-xs uppercase tracking-wider text-text-secondary">Source Control</span>
         <div className="flex items-center gap-1">
           <button onClick={() => fetchStatus()} title="Refresh" className="p-1 hover:bg-white/10 rounded">
             <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
           </button>
-          <button onClick={handlePull} title="Pull" disabled={pushPullLoading} className="p-1 hover:bg-white/10 rounded">
-            <ArrowDown size={14} />
-          </button>
-          <button onClick={handlePush} title="Push" disabled={pushPullLoading} className="p-1 hover:bg-white/10 rounded">
-            <ArrowUp size={14} />
-          </button>
-          <button title="More Actions" className="p-1 hover:bg-white/10 rounded">
+          <button
+            ref={menuButtonRef}
+            onClick={() => setShowMenu(!showMenu)}
+            title="More Actions"
+            className={`p-1 hover:bg-white/10 rounded ${showMenu ? 'bg-white/10' : ''}`}
+          >
             <MoreHorizontal size={14} />
           </button>
         </div>
+
+        {showMenu && menuButtonRef.current && (
+          <ContextMenu
+            position={{
+              x: menuButtonRef.current.getBoundingClientRect().left - 180, // Align left slightly
+              y: menuButtonRef.current.getBoundingClientRect().bottom + 5
+            }}
+            onClose={() => setShowMenu(false)}
+            items={[
+              { label: 'View & Sort', onClick: () => alert('View & Sort: Coming soon!') },
+              { separator: true },
+              { label: 'Pull', onClick: handlePull },
+              { label: 'Push', onClick: handlePush },
+              { label: 'Clone', onClick: () => alert('Clone: Coming soon!') },
+              { label: 'Checkout to...', onClick: () => alert('Checkout: Coming soon!') },
+              { label: 'Fetch', onClick: () => alert('Fetch: Coming soon!') },
+              { separator: true },
+              { label: 'Commit', onClick: () => alert('Use the quick commit input below.') },
+              { label: 'Changes', onClick: () => toggle('changes') },
+              { label: 'Pull, Push', onClick: async () => { await handlePull(); await handlePush(); } },
+              { separator: true },
+              { label: 'Branch', onClick: () => alert('Branching: Coming soon!') },
+              { label: 'Remote', onClick: () => alert('Remotes: Coming soon!') },
+              { label: 'Stash', onClick: () => alert('Stash: Coming soon!') },
+              { label: 'Tags', onClick: () => alert('Tags: Coming soon!') },
+              { separator: true },
+              { label: 'Show Git Output', onClick: () => alert('Git Output channel coming soon!') },
+            ]}
+          />
+        )}
       </div>
 
       {/* Commit Input - Always Visible */}
@@ -489,6 +522,7 @@ const GitgraphWrapper = ({ commits }: { commits: any[] }) => {
   return (
     <div className="p-2 relative min-h-full" ref={containerRef}>
       <Gitgraph
+        key={commits.length > 0 ? commits[0].hash : 'empty'}
         options={{
           template: templateExtend("metro", {
             colors: ["#F2A900", "#00BFFF", "#008000", "#FF6961", "#A64DFF"],

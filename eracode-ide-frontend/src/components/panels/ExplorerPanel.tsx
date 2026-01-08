@@ -293,14 +293,39 @@ export default function ExplorerPanel() {
 
     try {
       const dirHandle = rootDirectory.handle as FileSystemDirectoryHandle
+
+      // ✅ Check permission before accessing
+      // @ts-ignore
+      if (dirHandle.queryPermission) {
+        // @ts-ignore
+        const perm = await dirHandle.queryPermission({ mode: 'read' })
+        if (perm !== 'granted') {
+          // We can't request permission automatically in useEffect, 
+          // but we will catch the error below or let UI handle it.
+          // For now, let's try to verify if it throws.
+        }
+      }
+
       const currentExpanded = new Set(expandedFolders)
-      const refreshedRoot = await buildFileTree(dirHandle, dirHandle.name)
+      // ✅ Preserve the absolute path if available!
+      const path = rootDirectory.path || dirHandle.name
+      const refreshedRoot = await buildFileTree(dirHandle, path)
       setRootDirectory(refreshedRoot)
       setExpandedFolders(currentExpanded)
       console.log('✅ Explorer refreshed successfully')
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error refreshing explorer:', error)
-      alert('Failed to refresh explorer')
+      if (error.name === 'NotAllowedError' || error.message.includes('permission')) {
+        // Show alert to user to prompt interaction
+        const performVerify = confirm('Restoring folder access requires your permission. Click OK to verify.')
+        if (performVerify) {
+          // @ts-ignore
+          await rootDirectory.handle.requestPermission({ mode: 'read' })
+          handleRefresh() // Retry
+        }
+      } else {
+        alert('Failed to refresh explorer: ' + error.message)
+      }
     }
   }
 
@@ -1024,6 +1049,25 @@ export default function ExplorerPanel() {
         <div className="flex items-center gap-1">
           {rootDirectory && (
             <>
+              {/* ✅ NEW: Open/Close Folder Actions */}
+              <button
+                onClick={handleOpenFolder}
+                className="p-1.5 hover:bg-dark-hover rounded transition-colors cursor-pointer"
+                title="Open Different Folder"
+              >
+                <FolderOpen size={16} className="text-text-primary hover:text-primary transition-colors" />
+              </button>
+
+              <button
+                onClick={() => setRootDirectory(null)}
+                className="p-1.5 hover:bg-dark-hover rounded transition-colors cursor-pointer"
+                title="Close Folder"
+              >
+                <X size={16} className="text-text-primary hover:text-red-400 transition-colors" />
+              </button>
+
+              <div className="w-[1px] h-4 bg-dark-border mx-1" />
+
               <button
                 onClick={() => startCreating('file')}
                 className="p-1.5 hover:bg-dark-hover rounded transition-colors cursor-pointer"
@@ -1089,26 +1133,41 @@ export default function ExplorerPanel() {
               {/* ✅ Dev Mode: Manual Path Entry */}
               <div className="mt-4 w-full max-w-xs">
                 {showDevInput ? (
-                  <div className="flex gap-2 animate-in fade-in slide-in-from-top-2">
-                    <input
-                      type="text"
-                      value={manualPath}
-                      onChange={(e) => setManualPath(e.target.value)}
-                      placeholder="E:/path/to/project"
-                      className="flex-1 bg-dark-surface border border-dark-border rounded px-2 py-1 text-xs text-text-primary focus:outline-none focus:border-primary"
-                      onKeyDown={(e) => e.key === 'Enter' && handleManualOpen()}
-                    />
+                  <div className="flex flex-col gap-2 animate-in fade-in slide-in-from-top-2">
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={manualPath}
+                        onChange={(e) => setManualPath(e.target.value)}
+                        placeholder="E:/path/to/project"
+                        className="flex-1 bg-dark-surface border border-dark-border rounded px-2 py-1 text-xs text-text-primary focus:outline-none focus:border-primary"
+                        onKeyDown={(e) => e.key === 'Enter' && handleManualOpen()}
+                      />
+                      <button
+                        onClick={handleManualOpen}
+                        className="px-2 py-1 bg-accent text-white rounded text-xs hover:bg-accent/80"
+                      >
+                        Go
+                      </button>
+                      <button
+                        onClick={() => setShowDevInput(false)}
+                        className="p-1 text-text-secondary hover:text-text-primary"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+
                     <button
-                      onClick={handleManualOpen}
-                      className="px-2 py-1 bg-accent text-white rounded text-xs hover:bg-accent/80"
+                      onClick={async () => {
+                        if (confirm('This will clear all saved state and reload. Are you sure?')) {
+                          await window.indexedDB.deleteDatabase('eracode-db')
+                          localStorage.clear()
+                          window.location.reload()
+                        }
+                      }}
+                      className="text-[10px] text-red-400 hover:text-red-300 underline text-center"
                     >
-                      Go
-                    </button>
-                    <button
-                      onClick={() => setShowDevInput(false)}
-                      className="p-1 text-text-secondary hover:text-text-primary"
-                    >
-                      <X size={14} />
+                      Reset App State (Fix Stuck Folder)
                     </button>
                   </div>
                 ) : (

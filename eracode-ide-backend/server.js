@@ -115,6 +115,10 @@ app.use('/api/git', gitRoutes);
 const fileRoutes = require('./routes/fileRoutes');
 app.use('/api/files', fileRoutes);
 
+// ✅ SEARCH ROUTES
+const searchRoutes = require('./routes/searchRoutes');
+app.use('/api/search', searchRoutes);
+
 
 // ========================================
 // ✅ API PROXY ROUTES
