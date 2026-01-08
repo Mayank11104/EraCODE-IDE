@@ -78,12 +78,13 @@ async def execute_agent_task(task_id: str, request: AgentRequest):
         
         pending_approvals = []
         for approval_data in final_state.get("pending_approvals", []):
-            pending_approvals.append(PendingApproval(
-                id=approval_data["id"],
-                type=approval_data["type"],
-                artifact=Artifact(**approval_data["artifact"]),
-                status=approval_data["status"]
-            ))
+            if approval_data["status"] == "pending":
+                pending_approvals.append(PendingApproval(
+                    id=approval_data["id"],
+                    type=approval_data["type"],
+                    artifact=Artifact(**approval_data["artifact"]),
+                    status=approval_data["status"]
+                ))
         
         # Determine status
         if final_state.get("error"):
@@ -159,7 +160,7 @@ async def approve_action(approval_id: str, request: ApprovalRequest):
     if not final_state:
         raise HTTPException(status_code=400, detail="No final state available")
     
-    # Find the approval
+    # Find the approval in the state
     pending_approvals = final_state.get("pending_approvals", [])
     approval = next((a for a in pending_approvals if a["id"] == approval_id), None)
     
@@ -168,6 +169,8 @@ async def approve_action(approval_id: str, request: ApprovalRequest):
     
     # Update approval status
     approval["status"] = request.decision
+    
+    result_msg = "Approval recorded"
     
     if request.decision == "approved":
         # Apply the change
@@ -182,44 +185,125 @@ async def approve_action(approval_id: str, request: ApprovalRequest):
                 code_agent = CodeAgent()
                 edit = artifact["content"]
                 result = await code_agent.apply_edit(edit, project_path)
-                
                 logger.info(f"✅ Applied code edit: {edit['file']}")
-                
-                return {
-                    "status": "applied",
-                    "approval_id": approval_id,
-                    "result": result
-                }
+                result_msg = f"Applied edit to {edit['file']}"
             
             elif artifact["type"] == "terminal_command":
                 cmd = artifact["content"]["command"]
                 logger.info(f"✅ Approved command: {cmd}")
-                
-                return {
-                    "status": "approved",
-                    "approval_id": approval_id,
-                    "command": cmd,
-                    "message": "Command approved - execute via Node.js terminal"
-                }
-            
-            else:
-                return {
-                    "status": "approved",
-                    "approval_id": approval_id,
-                    "message": "Approval recorded"
-                }
+                result_msg = f"Approved command: {cmd}"
                 
         except Exception as e:
             logger.error(f"❌ Failed to apply approval: {e}")
             raise HTTPException(status_code=500, detail=f"Failed to apply: {str(e)}")
-    
     else:
         logger.info(f"🚫 Rejected approval: {approval_id}")
-        return {
-            "status": "rejected",
-            "approval_id": approval_id,
-            "message": "Action rejected by user"
+        result_msg = "Action rejected"
+
+    # Check if we should resume execution
+    # We resume if ALL pending approvals are now either approved or rejected
+    all_resolved = all(a["status"] in ("approved", "rejected") for a in pending_approvals)
+    
+    if all_resolved:
+        logger.info("🔄 All approvals resolved. Resuming agent execution...")
+        
+        # Clear pending approvals so the graph doesn't stop again immediately
+        # We keep the artifacts but clear the blocking list for the orchestrator
+        final_state["pending_approvals"] = [] 
+        
+        # Resume the graph
+        # We pass the modified final_state back in. The orchestrator continues from where it left off.
+        new_final_state = await orchestrator.execute(final_state)
+        
+        # Update session with new state
+        # Convert state to response format (reuse logic from execute_agent_task - should refactor ideally)
+        artifacts = []
+        for artifact_data in new_final_state.get("artifacts", []):
+            artifacts.append(Artifact(
+                type=artifact_data["type"],
+                content=artifact_data["content"],
+                requires_approval=artifact_data.get("requires_approval", False)
+            ))
+        
+        new_pending_approvals = []
+        for approval_data in new_final_state.get("pending_approvals", []):
+            if approval_data["status"] == "pending":
+                new_pending_approvals.append(PendingApproval(
+                    id=approval_data["id"],
+                    type=approval_data["type"],
+                    artifact=Artifact(**approval_data["artifact"]),
+                    status=approval_data["status"]
+                ))
+            
+        if new_final_state.get("error"):
+            status = "failed"
+            message = f"Error: {new_final_state['error']}"
+        elif new_pending_approvals:
+            status = "waiting_approval"
+            message = f"Waiting for {len(new_pending_approvals)} approval(s)"
+        else:
+            status = "completed"
+            message = "Task completed successfully"
+
+        new_response = AgentResponse(
+            task_id=session["task_id"],
+            status=status,
+            message=message,
+            agent_used=new_final_state.get("next_agent", "unknown"),
+            artifacts=artifacts,
+            pending_approvals=new_pending_approvals,
+            error=new_final_state.get("error")
+        )
+        
+        active_sessions[request.session_id] = {
+            "task_id": session["task_id"],
+            "status": status,
+            "response": new_response,
+            "final_state": new_final_state
         }
+        
+        return {
+            "status": "resumed",
+            "approval_id": approval_id,
+            "message": result_msg + ". Continuing execution."
+        }
+
+    # If not all resolved, we still need to update the session response so polling sees the change
+    if not all_resolved:
+        # Rebuild PendingApproval list from current state
+        updated_pending_approvals = []
+        for approval_data in pending_approvals:
+            if approval_data["status"] == "pending":
+                updated_pending_approvals.append(PendingApproval(
+                    id=approval_data["id"],
+                    type=approval_data["type"],
+                    artifact=Artifact(**approval_data["artifact"]),
+                    status=approval_data["status"]
+                ))
+            
+        # Update the stored response object
+        current_response = session["response"]
+        
+        # We need to create a new response object with updated approvals
+        # Assuming AgentResponse is Pydantic, we can use copy with update or just reconstruct
+        updated_response = AgentResponse(
+            task_id=current_response.task_id,
+            status="waiting_approval", # Still waiting
+            message=f"Waiting for {sum(1 for a in pending_approvals if a['status'] == 'pending')} approval(s)",
+            agent_used=current_response.agent_used,
+            artifacts=current_response.artifacts,
+            pending_approvals=updated_pending_approvals,
+            error=current_response.error
+        )
+        
+        # Save back to session
+        active_sessions[request.session_id]["response"] = updated_response
+
+    return {
+        "status": request.decision,
+        "approval_id": approval_id,
+        "message": result_msg + ". Waiting for other approvals."
+    }
 
 @router.get("/session/{session_id}")
 async def get_session(session_id: str):

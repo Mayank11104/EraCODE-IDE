@@ -67,7 +67,8 @@ class CodeAgent(BaseAgent):
                         "\n\nRETRY MODE:\n"
                         "- Previous output was invalid/incomplete.\n"
                         "- Generate FULL working code (not a stub).\n"
-                        "- content_base64 must be standard base64 and must not contain spaces/newlines.\n"
+                        "- Generate FULL working code (not a stub).\n"
+                        "- content must be valid JSON escaped string.\n"
                     )
 
                 file_prompt = CODE_FILE_PROMPT.format(
@@ -86,15 +87,21 @@ class CodeAgent(BaseAgent):
                     last_error = f"Missing edit object (attempt {attempt})"
                     continue
 
+                content = edit.get("content")
                 b64 = edit.get("content_base64")
-                if not isinstance(b64, str) or not b64.strip():
-                    last_error = f"Missing content_base64 (attempt {attempt})"
-                    continue
 
-                try:
-                    decoded = _safe_b64decode_utf8(b64)
-                except Exception as e:
-                    last_error = f"Invalid base64 (attempt {attempt}): {e}"
+                # Try direct content first
+                if isinstance(content, str) and content.strip():
+                     decoded = content
+                # Fallback to base64 if provided
+                elif isinstance(b64, str) and b64.strip():
+                    try:
+                        decoded = _safe_b64decode_utf8(b64)
+                    except Exception as e:
+                        last_error = f"Invalid base64 (attempt {attempt}): {e}"
+                        continue
+                else:
+                    last_error = f"Missing content (attempt {attempt})"
                     continue
 
                 if not self._content_quality_ok(decoded):
@@ -105,8 +112,8 @@ class CodeAgent(BaseAgent):
                     {
                         "file": (edit.get("file") or file_path).replace("\\", "/"),
                         "action": edit.get("action", "create"),
-                        "content": None,
-                        "content_base64": "".join((b64 or "").split()),
+                        "content": decoded,
+                        "content_base64": None, # No longer strictly needed
                         "reasoning": edit.get("reasoning", ""),
                     }
                 )
