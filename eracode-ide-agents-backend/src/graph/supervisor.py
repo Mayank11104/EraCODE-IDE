@@ -34,11 +34,23 @@ class SupervisorAgent:
         # Build context for routing
         open_files_str = ", ".join([f["path"] for f in open_files]) if open_files else "None"
         
+        # Check for recent agent results to prevent loops
+        recent_activity = []
+        if state.get("analyzer_result"):
+             recent_activity.append(f"Analyzer completed: {str(state['analyzer_result'])[:300]}")
+        if state.get("debug_result"):
+             recent_activity.append(f"Debugger completed: {str(state['debug_result'])[:300]}")
+        if state.get("terminal_result"):
+             recent_activity.append(f"Terminal completed: {str(state['terminal_result'])[:300]}")
+             
+        recent_activity_str = "\n".join(recent_activity) if recent_activity else "None"
+        
         # Create routing prompt
         prompt = SUPERVISOR_PROMPT.format(
             request=current_task,
             project_path=project_path,
-            open_files=open_files_str
+            open_files=open_files_str,
+            recent_activity=recent_activity_str
         )
         
         # Get routing decision

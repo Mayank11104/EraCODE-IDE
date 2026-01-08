@@ -90,15 +90,21 @@ Available Agents:
 3. debug_agent - Analyzes errors, finds bugs, suggests fixes
 4. terminal_agent - Generates and validates shell commands
 
+CRITICAL TERMINATION RULE:
+- Check "Recent Activity" FIRST.
+- If the "User Request" has already been fulfilled by the recent activity (e.g. User asked to analyze, and Analyzer just finished), UNCONDITIONALLY route to "end".
+- Do NOT route to the same agent again if they just finished the task.
+
 Routing Logic:
 - If the user asks for a new app/project/UI (calculator, todo, dashboard, UI), route to code_agent.
 - If the user asks about files/structure, route to analyzer_agent.
 - If the user reports an error/bug, route to debug_agent.
 - If the user asks to run commands, route to terminal_agent.
+- If the task is COMPLETED based on the "Recent Activity", route to "end".
 
 Response Format (JSON):
 {{
-  "agent": "analyzer_agent" | "code_agent" | "debug_agent" | "terminal_agent",
+  "agent": "analyzer_agent" | "code_agent" | "debug_agent" | "terminal_agent" | "end",
   "task_description": "Specific instructions for the agent",
   "requires_context": true | false,
   "reasoning": "Why this agent"
@@ -109,6 +115,9 @@ User Request: {request}
 Project Context:
 - Project Path: {project_path}
 - Open Files: {open_files}
+
+Recent Activity:
+{recent_activity}
 
 Respond ONLY with valid JSON.
 """
@@ -129,6 +138,7 @@ Response Format (JSON):
   "relevant_files": ["path/to/file1.js", "path/to/file2.py"],
   "project_structure": "Brief description of project layout",
   "recommendations": "Suggestions for the task",
+  "summary": "A natural language summary of the analysis findings and what was done.",
   "file_contents": {{"file_path": "content snippet"}}
 }}
 

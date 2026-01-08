@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from src.api import agent_routes, health_routes
 from src.config.settings import settings
 from src.utils.logger import logger
-
+from src.routes.diagrams import router as diagrams
 # Create FastAPI app
 app = FastAPI(
     title="EraCode AI Agents Backend",
@@ -28,7 +28,7 @@ app.add_middleware(
 # Register routes
 app.include_router(health_routes.router, tags=["Health"])
 app.include_router(agent_routes.router, prefix="/agent", tags=["Agents"])
-
+app.include_router(diagrams, prefix="/routes", tags=["diagrams"])
 @app.get("/")
 async def root():
     """Root endpoint"""

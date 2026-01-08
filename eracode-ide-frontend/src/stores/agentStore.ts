@@ -124,10 +124,6 @@ export const useAgentStore = create<AgentState>((set, get) => ({
                     let aiContent = status.message;
                     if (status.status === 'waiting_approval') {
                         aiContent = `I have a plan that requires your approval.`;
-                    } else if (status.status === 'completed') {
-                        if (status.artifacts && status.artifacts.length > 0) {
-                            aiContent = "Task completed. I've updated the files.";
-                        }
                     }
 
                     const currentMessages = get().messages;

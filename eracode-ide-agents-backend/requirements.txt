@@ -27,3 +27,4 @@ groq==0.37.1
 # HTTP Client
 httpx==0.28.1
 python-multipart==0.0.21
+requests

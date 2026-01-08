@@ -95,7 +95,52 @@ async def execute_agent_task(task_id: str, request: AgentRequest):
             message = f"Waiting for {len(pending_approvals)} approval(s)"
         else:
             status = "completed"
-            message = "Task completed successfully"
+            
+            # Generate intelligent summary based on which agent just finished
+            logger.info(f"🔍 DEBUG: final_state keys: {final_state.keys()}")
+            
+            if final_state.get("analyzer_result"):
+                res = final_state["analyzer_result"]
+                logger.info(f"🔍 DEBUG: analyzer_result: {res}")
+                
+                # Use the natural language summary if available
+                if res.get("summary"):
+                    message = res["summary"]
+                    # Optionally append file list if not too long
+                    if res.get("relevant_files") and len(res["relevant_files"]) <= 5:
+                         files = [f.split('\\')[-1] for f in res["relevant_files"]] # Just filenames
+                         message += f"\n\n**Analysed:** {', '.join(files)}"
+                else:
+                    # Fallback to structured format
+                    summary_parts = []
+                    if res.get("project_structure"):
+                        summary_parts.append(f"**Project Structure:**\n{res['project_structure']}")
+                    if res.get("relevant_files"):
+                        summary_parts.append(f"\n**Relevant Files:**\n- " + "\n- ".join(res['relevant_files']))
+                    if res.get("recommendations"):
+                        summary_parts.append(f"\n**Recommendations:**\n{res['recommendations']}")
+                    
+                    message = "\n".join(summary_parts) if summary_parts else "Analysis completed."
+                
+            elif final_state.get("debug_result"):
+                res = final_state["debug_result"]
+                message = f"**Debugging Complete:**\n{res.get('root_cause', 'No root cause found')}\n\n**Fix:** {res.get('suggested_fix', {}).get('fix', 'No fix suggested')}"
+                
+            elif final_state.get("code_result"):
+                res = final_state["code_result"]
+                if isinstance(res, dict) and res.get("edits"):
+                    files = [e.get("file") for e in res.get("edits", [])]
+                    message = f"**Code Updated:**\nModified files: {', '.join(files)}"
+                else:
+                    message = "Code generation completed."
+                    
+            elif final_state.get("terminal_result"):
+                res = final_state["terminal_result"]
+                cmds = [c.get("command") for c in res.get("commands", [])]
+                message = f"**Commands Generated:**\n" + "\n".join([f"`{c}`" for c in cmds])
+                
+            else:
+                message = f"Task completed: {final_state.get('current_task', 'Success')}"
         
         # Create response
         response = AgentResponse(
@@ -313,11 +358,22 @@ async def get_session(session_id: str):
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
     
+    response_data = {}
+    if "response" in session:
+        resp = session["response"]
+        # Handle Pydantic model
+        if hasattr(resp, "dict"):
+            response_data = resp.dict()
+        else:
+            response_data = resp
+            
     return {
         "session_id": session_id,
         "task_id": session["task_id"],
         "status": session["status"],
-        "has_response": "response" in session
+        "message": response_data.get("message"), 
+        "artifacts": response_data.get("artifacts", []),
+        "pending_approvals": response_data.get("pending_approvals", [])
     }
 
 @router.get("/session/{session_id}/approvals")
@@ -342,6 +398,7 @@ async def get_pending_approvals(session_id: str):
         "session_id": session_id,
         "task_id": session["task_id"],
         "status": session["status"],
+        "message": response_dict.get("message"), # Added message field
         "pending_approvals": response_dict.get("pending_approvals", []),
         "artifacts": response_dict.get("artifacts", [])
     }
