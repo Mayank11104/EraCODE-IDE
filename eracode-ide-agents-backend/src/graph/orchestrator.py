@@ -53,6 +53,7 @@ class AgentOrchestrator:
                 "debug": "debug",
                 "terminal": "terminal",
                 "end": END,
+                "continue": "execute_step",
                 # If supervisor chooses code directly, we still plan for “app-like” tasks
                 "code": "planner",
             },
@@ -109,6 +110,11 @@ class AgentOrchestrator:
         return "supervisor"
 
     async def _supervisor_node(self, state: AgentState) -> AgentState:
+        # Check if we are resuming an existing plan (step_index > 0 implies we started executing)
+        if state.get("plan_steps") and state.get("step_index", 0) > 0:
+            logger.info("🔄 Resuming existing plan execution")
+            return {**state, "next_agent": "continue"}
+
         result = await self.supervisor.route(state)
         return {**state, **result}
 
@@ -279,34 +285,35 @@ class AgentOrchestrator:
         return state
 
     async def execute(self, initial_state: dict) -> dict:
+        # Preserve existing state if resuming, otherwise initialize defaults
         state: AgentState = {
-            "messages": [{"role": "user", "content": initial_state.get("current_task", "")}],
+            "messages": initial_state.get("messages", [{"role": "user", "content": initial_state.get("current_task", "")}]),
             "current_task": initial_state.get("current_task", ""),
             "project_path": initial_state.get("project_path", ""),
             "file_tree": initial_state.get("file_tree", []),
             "open_files": initial_state.get("open_files", []),
             "session_id": initial_state.get("session_id", ""),
             "permission_level": initial_state.get("permission_level", "auto"),
-            "next_agent": None,
+            "next_agent": initial_state.get("next_agent", None),
 
-            "stack": "html_css_js",
-            "plan_steps": [],
-            "step_index": 0,
+            "stack": initial_state.get("stack", "html_css_js"),
+            "plan_steps": initial_state.get("plan_steps", []),
+            "step_index": initial_state.get("step_index", 0),
 
-            "planner_result": None,
-            "reviewer_result": None,
+            "planner_result": initial_state.get("planner_result", None),
+            "reviewer_result": initial_state.get("reviewer_result", None),
 
-            "analyzer_result": None,
-            "code_result": None,
-            "debug_result": None,
-            "terminal_result": None,
+            "analyzer_result": initial_state.get("analyzer_result", None),
+            "code_result": initial_state.get("code_result", None),
+            "debug_result": initial_state.get("debug_result", None),
+            "terminal_result": initial_state.get("terminal_result", None),
 
-            "relevant_files": [],
-            "file_contents": {},
-            "pending_approvals": [],
-            "artifacts": [],
-            "iteration_count": 0,
-            "error": None,
+            "relevant_files": initial_state.get("relevant_files", []),
+            "file_contents": initial_state.get("file_contents", {}),
+            "pending_approvals": initial_state.get("pending_approvals", []),
+            "artifacts": initial_state.get("artifacts", []),
+            "iteration_count": initial_state.get("iteration_count", 0),
+            "error": initial_state.get("error", None),
         }
 
         try:

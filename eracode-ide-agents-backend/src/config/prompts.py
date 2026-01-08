@@ -181,9 +181,9 @@ Generate file: {file_path}
 Purpose: {purpose}
 
 CRITICAL OUTPUT RULES:
-- Return the FULL UTF-8 file content as Base64 in content_base64.
-- DO NOT include raw code in JSON (no "content": "...").
-- DO NOT use markdown.
+- Return the FULL UTF-8 file content in the "content" field.
+- Properly escape JSON special characters (newlines, quotes).
+- DO NOT use markdown code blocks inside the JSON string.
 - Output MUST be valid JSON.
 
 Return ONLY valid JSON:
@@ -191,7 +191,7 @@ Return ONLY valid JSON:
   "edit": {{
     "file": "{file_path}",
     "action": "create",
-    "content_base64": "BASE64_UTF8_FILE_CONTENT",
+     "content": "FILE_CONTENT_HERE",
     "reasoning": "why this file content is correct"
   }}
 }}

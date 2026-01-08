@@ -3,7 +3,7 @@ from typing import Literal
 
 class Settings(BaseSettings):
     # Groq API Configuration
-    GROQ_API_KEY: str
+    GROQ_API_KEY: str = "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"
     
     # Model Configuration
     MODEL_PROVIDER: Literal["groq", "openai", "anthropic", "google"] = "groq"
