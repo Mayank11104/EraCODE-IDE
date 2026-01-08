@@ -1,6 +1,6 @@
 import type { AgentRequest, AgentResponse, ApprovalRequest } from '../types/agent.types';
 
-const API_BASE_URL = 'http://localhost:8000/agent'; // Adjusted to match backend route prefix
+const API_BASE_URL = 'http://localhost:5000/agent'; // Adjusted to match backend route prefix
 
 export const agentService = {
     async execute(request: AgentRequest): Promise<AgentResponse> {
