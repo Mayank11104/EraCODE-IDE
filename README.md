@@ -1,4 +1,4 @@
-# 🚀 EraCODE IDE
+# EraCODE IDE
 
 <div align="center">
 
@@ -8,75 +8,75 @@
 
 **A Next-Generation Cloud-Native IDE with AI-Powered Development Assistance**
 
-[Features](#-features) • [Architecture](#-architecture) • [Installation](#-installation) • [Usage](#-usage) • [Tech Stack](#-tech-stack) • [Contributing](#-contributing)
+[Features](#features) • [Architecture](#architecture) • [Installation](#installation) • [Usage](#usage) • [Tech Stack](#tech-stack) • [Contributing](#contributing)
 
 </div>
 
 ---
 
-## 📖 Overview
+## Overview
 
 **EraCODE IDE** is a modern, full-featured Integrated Development Environment built with cutting-edge web technologies. It combines the power of cloud computing, AI assistance, and comprehensive development tools into a single, seamless platform. Whether you're coding locally or managing cloud infrastructure, EraCODE IDE provides everything you need in one place.
 
-### 🎯 Key Highlights
+### Key Highlights
 
-- **🤖 AI-Powered Coding Assistant** - Integrated LangGraph-based multi-agent system with Groq/OpenAI support
-- **☁️ Cloud Terminal Support** - Connect to AWS EC2, SSH servers, and local terminals seamlessly
-- **🐳 Docker Management** - Full container lifecycle management with real-time monitoring
-- **🔄 CI/CD Integration** - GitHub Actions workflow visualization and management
-- **📊 System Monitoring** - Real-time CPU, memory, network, and process tracking
-- **🗄️ Database Management** - Support for PostgreSQL, MySQL, MongoDB, and SQLite
-- **🧪 API Testing** - Built-in HTTP/WebSocket API tester with cookie inspection
-- **📁 File Explorer** - Full-featured file system with drag-and-drop support
-- **🎨 Monaco Editor** - VSCode-quality code editing with syntax highlighting
-- **🔍 Advanced Search** - Multi-file search with regex support
-- **📈 Data Visualization** - Mermaid diagrams, charts, and workflow visualizations
+- **AI-Powered Coding Assistant** - Integrated LangGraph-based multi-agent system with Azure OpenAI
+- **Cloud Terminal Support** - Connect to AWS EC2, SSH servers, and local terminals seamlessly
+- **Docker Management** - Full container lifecycle management with real-time monitoring
+- **CI/CD Integration** - GitHub Actions workflow visualization and management
+- **System Monitoring** - Real-time CPU, memory, network, and process tracking
+- **Database Management** - Support for PostgreSQL, MySQL, MongoDB, and SQLite
+- **API Testing** - Built-in HTTP/WebSocket API tester with cookie inspection
+- **File Explorer** - Full-featured file system with drag-and-drop support
+- **Monaco Editor** - VSCode-quality code editing with syntax highlighting
+- **Advanced Search** - Multi-file search with regex support
+- **Data Visualization** - Mermaid diagrams, charts, and workflow visualizations
 
 ---
 
-## ✨ Features
+## Features
 
-### 🎨 **Modern UI/UX**
+### Modern UI/UX
 - Sleek dark theme with smooth animations
 - Resizable panels with drag-and-drop support
 - Multi-tab editor with file management
 - Responsive design for all screen sizes
 
-### 💻 **Terminal Capabilities**
+### Terminal Capabilities
 - **Local Terminals** - Native terminal support (PowerShell, CMD, Bash, WSL)
 - **Cloud Terminals** - AWS EC2 instance management and SSH connections
 - **Multi-Terminal** - Multiple terminal sessions with easy switching
 - **WebSocket-based** - Real-time terminal streaming with low latency
 
-### 🤖 **AI Agent System**
+### AI Agent System
 - Multi-agent architecture using LangGraph
 - Code generation and refactoring assistance
 - Intelligent code review and suggestions
 - Natural language to code conversion
-- Context-aware completions
+- Context-aware completions powered by Azure OpenAI
 
-### 🐳 **Docker Integration**
+### Docker Integration
 - Container lifecycle management (start, stop, restart, remove)
 - Real-time container logs streaming
 - Resource usage monitoring
 - Image management
 - Network and volume inspection
 
-### 🔄 **CI/CD Pipeline**
+### CI/CD Pipeline
 - GitHub Actions workflow visualization
 - Real-time build status monitoring
 - Pipeline stage tracking
 - Workflow execution history
 - Integration with GitHub repositories
 
-### 🗄️ **Database Tools**
+### Database Tools
 - **PostgreSQL** - Full query editor with schema browser
 - **MySQL** - Table management and data visualization
 - **MongoDB** - Document explorer and query builder
 - **SQLite** - Lightweight database support
 - Connection pooling and management
 
-### 🧪 **API Testing**
+### API Testing
 - HTTP request builder (GET, POST, PUT, DELETE, PATCH)
 - WebSocket connection testing
 - Cookie inspection (including HttpOnly cookies)
@@ -84,28 +84,28 @@
 - Response visualization
 - Request history
 
-### 📊 **System Monitoring**
+### System Monitoring
 - Real-time CPU and memory usage
 - Network I/O tracking
 - Process management
 - Disk usage statistics
 - System information dashboard
 
-### 🎨 **Visualization Tools**
+### Visualization Tools
 - Mermaid diagram rendering
 - Flowchart and sequence diagrams
 - Data charts (line, bar, pie)
 - Architecture diagrams
 - Git graph visualization
 
-### 🔍 **Search & Navigation**
+### Search & Navigation
 - Multi-file text search
 - Regex pattern matching
 - File type filtering
 - Search history
 - Quick file navigation
 
-### 📁 **File Management**
+### File Management
 - Tree-view file explorer
 - Drag-and-drop file operations
 - File upload/download
@@ -114,7 +114,7 @@
 
 ---
 
-## 🏗️ Architecture
+## Architecture
 
 EraCODE IDE follows a modern microservices architecture with three main components:
 
@@ -129,7 +129,7 @@ EraCODE IDE follows a modern microservices architecture with three main componen
 │  │              │  │              │  │              │ │
 │  │  - Monaco    │  │  - Express   │  │  - LangGraph │ │
 │  │  - Xterm.js  │  │  - Socket.IO │  │  - FastAPI   │ │
-│  │  - Zustand   │  │  - node-pty  │  │  - Groq/GPT  │ │
+│  │  - Zustand   │  │  - node-pty  │  │  - Azure AI  │ │
 │  └──────────────┘  └──────────────┘  └──────────────┘ │
 │                                                         │
 └─────────────────────────────────────────────────────────┘
@@ -140,9 +140,9 @@ EraCODE IDE follows a modern microservices architecture with three main componen
    └──────────┘        └──────────┘        └──────────┘
 ```
 
-### 📦 Components
+### Components
 
-#### **Frontend** (`eracode-ide-frontend`)
+#### Frontend (`eracode-ide-frontend`)
 - **Framework**: React 19 + TypeScript + Vite
 - **State Management**: Zustand
 - **Editor**: Monaco Editor (VSCode engine)
@@ -151,8 +151,9 @@ EraCODE IDE follows a modern microservices architecture with three main componen
 - **UI Components**: Custom components with Lucide icons
 - **Real-time**: Socket.IO client
 
-#### **Backend** (`eracode-ide-backend`)
+#### Backend (`eracode-ide-backend`)
 - **Runtime**: Node.js + Express
+- **Port**: 3001
 - **WebSocket**: Socket.IO for real-time communication
 - **Terminal**: node-pty for native terminal support
 - **Cloud**: AWS SDK for EC2 management, SSH2 for remote connections
@@ -161,33 +162,35 @@ EraCODE IDE follows a modern microservices architecture with three main componen
 - **File System**: Chokidar for file watching
 - **Git**: simple-git for version control
 
-#### **AI Agents** (`eracode-ide-agents-backend`)
+#### AI Agents (`eracode-ide-agents-backend`)
 - **Framework**: FastAPI + Python
+- **Port**: 5000
 - **AI Engine**: LangGraph for multi-agent orchestration
-- **LLM Providers**: Groq (Llama), OpenAI (GPT-4)
+- **LLM Provider**: Azure OpenAI
 - **Chains**: LangChain for prompt engineering
 - **Tools**: Custom tools for code analysis and generation
 
 ---
 
-## 🚀 Installation
+## Installation
 
 ### Prerequisites
 
-- **Node.js** 18+ and npm/yarn
-- **Python** 3.10+
-- **Docker** (optional, for container management)
-- **AWS Account** (optional, for cloud terminals)
-- **Git**
+- Node.js 18+ and npm/yarn
+- Python 3.10+
+- Docker (optional, for container management)
+- AWS Account (optional, for cloud terminals)
+- Azure OpenAI API Key
+- Git
 
-### 1️⃣ Clone the Repository
+### Clone the Repository
 
 ```bash
 git clone https://github.com/Mayank11104/EraCODE-IDE.git
 cd EraCODE-IDE
 ```
 
-### 2️⃣ Setup Frontend
+### Setup Frontend
 
 ```bash
 cd eracode-ide-frontend
@@ -197,10 +200,10 @@ npm install
 Create `.env` file:
 ```env
 VITE_BACKEND_URL=http://localhost:3001
-VITE_AI_BACKEND_URL=http://localhost:8000
+VITE_AI_BACKEND_URL=http://localhost:5000
 ```
 
-### 3️⃣ Setup Backend
+### Setup Backend
 
 ```bash
 cd ../eracode-ide-backend
@@ -227,7 +230,7 @@ POSTGRES_DB=postgres
 MONGO_URI=mongodb://admin:password123@localhost:27017
 ```
 
-### 4️⃣ Setup AI Agents Backend
+### Setup AI Agents Backend
 
 ```bash
 cd ../eracode-ide-agents-backend
@@ -236,21 +239,20 @@ pip install -r requirements.txt
 
 Create `.env` file:
 ```env
-# LLM Provider (groq or openai)
-MODEL_PROVIDER=groq
-MODEL_NAME=llama-3.3-70b-versatile
+# LLM Provider
+MODEL_PROVIDER=openai
+MODEL_NAME=gpt-4
 
-# API Keys
-GROQ_API_KEY=your_groq_api_key
-OPENAI_API_KEY=your_openai_api_key
+# Azure OpenAI API Key
+OPENAI_API_KEY=your_azure_openai_api_key
 
 # Server
-PORT=8000
+PORT=5000
 DEBUG=true
 NODE_BACKEND_URL=http://localhost:3001
 ```
 
-### 5️⃣ Setup Databases (Optional)
+### Setup Databases (Optional)
 
 Using Docker Compose:
 ```bash
@@ -264,30 +266,30 @@ This will start:
 
 ---
 
-## 🎮 Usage
+## Usage
 
 ### Start All Services
 
-#### Terminal 1: Frontend
+**Terminal 1 - Frontend:**
 ```bash
 cd eracode-ide-frontend
 npm run dev
 ```
-Frontend will run on `http://localhost:5173`
+Frontend runs on `http://localhost:5173`
 
-#### Terminal 2: Backend
+**Terminal 2 - Backend:**
 ```bash
 cd eracode-ide-backend
 npm run dev
 ```
-Backend will run on `http://localhost:3001`
+Backend runs on `http://localhost:3001`
 
-#### Terminal 3: AI Agents
+**Terminal 3 - AI Agents:**
 ```bash
 cd eracode-ide-agents-backend
-python -m uvicorn src.main:app --reload --port 8000
+python -m uvicorn src.main:app --reload --port 5000
 ```
-AI Backend will run on `http://localhost:8000`
+AI Backend runs on `http://localhost:5000`
 
 ### Access the IDE
 
@@ -298,7 +300,7 @@ http://localhost:5173
 
 ---
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 ### Frontend
 | Technology | Purpose |
@@ -340,47 +342,127 @@ http://localhost:5173
 | FastAPI | Web Framework |
 | LangGraph | Multi-Agent Orchestration |
 | LangChain | LLM Framework |
-| Groq | Fast LLM Inference |
-| OpenAI | GPT Models |
+| Azure OpenAI | GPT Models |
 | Pydantic | Data Validation |
 | Uvicorn | ASGI Server |
 
 ---
 
-## 📸 Screenshots
+## Project Structure
 
-### Main IDE Interface
-![Main Interface](docs/screenshots/main-interface.png)
-
-### AI Agent Assistant
-![AI Agent](docs/screenshots/ai-agent.png)
-
-### Docker Management
-![Docker Panel](docs/screenshots/docker-panel.png)
-
-### Database Explorer
-![Database](docs/screenshots/database-panel.png)
-
-### API Testing
-![API Tester](docs/screenshots/api-tester.png)
+```
+EraCODE-IDE/
+├── eracode-ide-frontend/          # React Frontend
+│   ├── src/
+│   │   ├── components/            # UI Components
+│   │   ├── pages/                 # Main Pages
+│   │   ├── stores/                # Zustand Stores
+│   │   ├── services/              # API Services
+│   │   ├── hooks/                 # Custom Hooks
+│   │   └── types/                 # TypeScript Types
+│   └── package.json
+│
+├── eracode-ide-backend/           # Node.js Backend (Port 3001)
+│   ├── controllers/               # Route Controllers
+│   ├── services/                  # Business Logic
+│   ├── routes/                    # API Routes
+│   ├── sockets/                   # WebSocket Handlers
+│   ├── middleware/                # Express Middleware
+│   ├── config/                    # Configuration
+│   └── server.js                  # Main Server
+│
+├── eracode-ide-agents-backend/    # Python AI Backend (Port 5000)
+│   ├── src/
+│   │   ├── agents/                # LangGraph Agents
+│   │   ├── tools/                 # Agent Tools
+│   │   ├── graph/                 # Agent Workflows
+│   │   ├── api/                   # FastAPI Routes
+│   │   ├── models/                # Data Models
+│   │   ├── prompts/               # LLM Prompts
+│   │   └── main.py                # FastAPI App
+│   └── requirements.txt
+│
+├── docker-compose.yml             # Database Services
+└── README.md                      # Documentation
+```
 
 ---
 
-## 🗺️ Roadmap
+## API Endpoints
 
-- [ ] **Collaborative Editing** - Real-time multi-user editing
-- [ ] **Plugin System** - Extensible plugin architecture
-- [ ] **Theme Customization** - Custom theme editor
-- [ ] **Kubernetes Support** - K8s cluster management
-- [ ] **Code Debugging** - Integrated debugger
-- [ ] **Git GUI** - Visual git operations
-- [ ] **Mobile App** - iOS/Android companion apps
-- [ ] **Self-Hosted** - Docker deployment option
-- [ ] **Marketplace** - Extension marketplace
+### Backend (Port 3001)
+
+**Health Check:**
+```
+GET http://localhost:3001/api/health
+```
+
+**Terminals:**
+```
+GET http://localhost:3001/api/terminals
+```
+
+**Git Operations:**
+```
+POST http://localhost:3001/api/git/clone
+POST http://localhost:3001/api/git/commit
+POST http://localhost:3001/api/git/push
+GET  http://localhost:3001/api/git/status
+```
+
+**Docker Operations:**
+```
+GET  http://localhost:3001/api/docker/containers
+POST http://localhost:3001/api/docker/containers/:id/start
+POST http://localhost:3001/api/docker/containers/:id/stop
+```
+
+**Database Operations:**
+```
+POST http://localhost:3001/api/database/connect
+POST http://localhost:3001/api/database/query
+GET  http://localhost:3001/api/database/tables
+```
+
+**System Monitoring:**
+```
+GET http://localhost:3001/api/system/metrics
+```
+
+### AI Agents (Port 5000)
+
+**Chat with Agent:**
+```
+POST http://localhost:5000/agent/chat
+```
+
+**Generate Code:**
+```
+POST http://localhost:5000/agent/generate
+```
+
+**Code Review:**
+```
+POST http://localhost:5000/agent/review
+```
 
 ---
 
-## 🤝 Contributing
+## Keyboard Shortcuts
+
+| Shortcut | Action |
+|----------|--------|
+| `Ctrl + `` | Toggle Terminal |
+| `Ctrl + L` | Toggle AI Agent Panel |
+| `Ctrl + B` | Toggle Sidebar |
+| `Ctrl + P` | Quick File Search |
+| `Ctrl + Shift + F` | Search in Files |
+| `Ctrl + S` | Save File |
+| `Ctrl + W` | Close Tab |
+
+---
+
+## Contributing
 
 Contributions are welcome! Please follow these steps:
 
@@ -400,45 +482,45 @@ Contributions are welcome! Please follow these steps:
 
 ---
 
-## 📄 License
+## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ---
 
-## 👨‍💻 Author
+## Author
 
-**Mayank Sharma**
+**Mayank Chaudhari**
 
 - GitHub: [@Mayank11104](https://github.com/Mayank11104)
-- LinkedIn: [Connect with me](https://www.linkedin.com/in/mayank-sharma)
+- LinkedIn: [Connect with me](https://www.linkedin.com/in/mayank-chaudhari)
 
 ---
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
 - [Monaco Editor](https://microsoft.github.io/monaco-editor/) - VSCode's editor
 - [Xterm.js](https://xtermjs.org/) - Terminal emulator
 - [LangGraph](https://github.com/langchain-ai/langgraph) - Multi-agent framework
 - [Socket.IO](https://socket.io/) - Real-time communication
 - [TailwindCSS](https://tailwindcss.com/) - Utility-first CSS
+- [Azure OpenAI](https://azure.microsoft.com/en-us/products/ai-services/openai-service) - AI capabilities
 
 ---
 
-## 📞 Support
+## Support
 
-If you have any questions or need help, please:
+If you have any questions or need help:
 
 - Open an [Issue](https://github.com/Mayank11104/EraCODE-IDE/issues)
 - Start a [Discussion](https://github.com/Mayank11104/EraCODE-IDE/discussions)
-- Contact via [Email](mailto:your.email@example.com)
 
 ---
 
 <div align="center">
 
-**⭐ Star this repository if you find it helpful!**
+**Star this repository if you find it helpful!**
 
-Made with ❤️ by [Mayank Sharma](https://github.com/Mayank11104)
+Made with ❤️ by [Mayank Chaudhari](https://github.com/Mayank11104)
 
 </div>
