@@ -20,6 +20,12 @@ DIAGRAM FORMAT RULES
 5. Do NOT include comments
 6. Keep diagrams minimal and clean
 7. Follow standard system architecture practices
+8. EDGE SYNTAX RULES:
+   - Correct: `A --> B`, `A -- Label --> B`, `A -->|Label| B`
+   - INCORRECT: `A -->|Label|--> B` (Double arrows banned)
+   - INCORRECT: `A |> B` (Inheritance syntax banned)
+   - USE ONLY: `-->` (solid), `-.->` (dotted), `==>` (thick)
+
 
 --------------------------------------------------
 COLOR & STYLE RULES (MANDATORY)
@@ -52,12 +58,20 @@ classDef frontend fill:#E3F2FD,stroke:#90A4AE,color:#263238;
 React_Frontend:::frontend
 
 --------------------------------------------------
-COMPONENT NAMING RULES
+NODE ID RULES (STRICT)
 --------------------------------------------------
-- Frontend: React Frontend, Angular App, Mobile App
-- Backend: API Service, FastAPI Backend, Node Backend
-- Auth: Auth Service, OAuth Server, JWT Auth
-- Database: PostgreSQL Database, MySQL Database
+- Node IDs MUST be single alphanumeric words (no spaces)
+- Use brackets `[]` for labels with spaces
+- Correct: `Process_Payment["Process Payment"]`
+- INCORRECT: `Process Payment`
+
+--------------------------------------------------
+COMPONENT NAMING EXAMPLES (Use these labels in brackets)
+--------------------------------------------------
+- Frontend: "React Frontend", "Angular App"
+- Backend: "API Service", "FastAPI Backend"
+- Auth: "Auth Service", "JWT Auth"
+- Database: "PostgreSQL", "MySQL"
 - Cache: Redis Cache
 - Messaging: Kafka, RabbitMQ
 - Infra: Load Balancer, API Gateway, CDN

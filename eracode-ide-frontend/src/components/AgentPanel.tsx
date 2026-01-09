@@ -12,7 +12,8 @@ import {
   Zap,
   Eye,
   Check,
-  XCircle
+  XCircle,
+  Copy
 } from 'lucide-react'
 import { useAgentStore } from '../stores/agentStore'
 // import { useEditorStore } from '../stores/editorStore' // Just in case we need it directly
@@ -24,6 +25,13 @@ interface AgentPanelProps {
 export default function AgentPanel({ onClose }: AgentPanelProps) {
   const [activeTab, setActiveTab] = useState('chat')
   const [input, setInput] = useState('')
+  const [copiedId, setCopiedId] = useState<string | null>(null)
+
+  const handleCopy = (id: string, content: string) => {
+    navigator.clipboard.writeText(content)
+    setCopiedId(id)
+    setTimeout(() => setCopiedId(null), 2000)
+  }
 
   // Connect to store
   const {
@@ -125,14 +133,21 @@ export default function AgentPanel({ onClose }: AgentPanelProps) {
                   }`}
               >
                 <div
-                  className={`max-w-[85%] rounded-lg px-4 py-2.5 ${message.role === 'user'
+                  className={`max-w-[85%] rounded-lg px-4 py-2.5 relative group ${message.role === 'user'
                     ? 'bg-primary/20 border border-primary/30 text-white'
                     : 'bg-dark-hover border border-dark-border text-text-primary'
                     }`}
                 >
-                  <p className="text-[13px] leading-relaxed whitespace-pre-wrap">
+                  <p className="text-[13px] leading-relaxed whitespace-pre-wrap pr-4">
                     {message.content}
                   </p>
+                  <button
+                    onClick={() => handleCopy(message.id, message.content)}
+                    className="absolute top-2 right-2 p-1 text-text-secondary hover:text-white opacity-0 group-hover:opacity-100 transition-opacity bg-dark-hover/50 rounded"
+                    title="Copy text"
+                  >
+                    {copiedId === message.id ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
+                  </button>
                 </div>
 
                 {/* Pending Approvals */}
