@@ -110,6 +110,13 @@ app.get('/api/terminals', (req, res) => {
 app.use('/api/git', gitRoutes);
 
 // ========================================
+// ✅ DOCKER ROUTES
+// ========================================
+const dockerRoutes = require('./routes/dockerRoutes');
+app.use('/api/docker', dockerRoutes);
+
+
+// ========================================
 // ✅ FILE ROUTES (For Dev Mode)
 // ========================================
 const fileRoutes = require('./routes/fileRoutes');
@@ -118,6 +125,10 @@ app.use('/api/files', fileRoutes);
 // ✅ SEARCH ROUTES
 const searchRoutes = require('./routes/searchRoutes');
 app.use('/api/search', searchRoutes);
+
+// ✅ DATABASE ROUTES
+const databaseRoutes = require('./routes/databaseRoutes');
+app.use('/api/database', databaseRoutes);
 
 
 // ========================================

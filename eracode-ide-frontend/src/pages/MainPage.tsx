@@ -47,6 +47,9 @@ export default function MainPage() {
   // ✅ Visualizer width state - Default 800px
   const [visualizerPanelWidth, setVisualizerPanelWidth] = useState(1000)
   const [isResizingVisualizer, setIsResizingVisualizer] = useState(false)
+  // ✅ Docker width state - Default 600px
+  const [dockerPanelWidth, setDockerPanelWidth] = useState(1000)
+  const [isResizingDocker, setIsResizingDocker] = useState(false)
 
   // Right agent panel state
   const [showAgentPanel, setShowAgentPanel] = useState(false)
@@ -81,7 +84,7 @@ export default function MainPage() {
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
-      if (!isResizingApi && !isResizingVisualizer) return
+      if (!isResizingApi && !isResizingVisualizer && !isResizingDocker) return
 
       const sidebarWidth = isSidebarHovered ? 145 : 48
       const newWidth = e.clientX - sidebarWidth
@@ -94,15 +97,20 @@ export default function MainPage() {
         // ✅ Min: 455px, Max: 1200px (Visualizer needs more space)
         const clampedWidth = Math.max(1000, Math.min(newWidth, 1200))
         setVisualizerPanelWidth(clampedWidth)
+      } else if (isResizingDocker) {
+        // ✅ Min: 400px, Max: 1000px
+        const clampedWidth = Math.max(400, Math.min(newWidth, 1000))
+        setDockerPanelWidth(clampedWidth)
       }
     }
 
     const handleMouseUp = () => {
       setIsResizingApi(false)
       setIsResizingVisualizer(false)
+      setIsResizingDocker(false)
     }
 
-    if (isResizingApi || isResizingVisualizer) {
+    if (isResizingApi || isResizingVisualizer || isResizingDocker) {
       document.addEventListener('mousemove', handleMouseMove)
       document.addEventListener('mouseup', handleMouseUp)
 
@@ -111,7 +119,7 @@ export default function MainPage() {
         document.removeEventListener('mouseup', handleMouseUp)
       }
     }
-  }, [isResizingApi, isResizingVisualizer, isSidebarHovered])
+  }, [isResizingApi, isResizingVisualizer, isResizingDocker, isSidebarHovered])
 
   // ⭐ UPDATED - Handle sidebar click with Projects panel memory
   const handleSidebarClick = (panelId: string) => {
@@ -185,7 +193,9 @@ export default function MainPage() {
     let panelWidth = 250
     if (activeLeftPanel === 'api') panelWidth = apiPanelWidth
     if (activeLeftPanel === 'visualizer') panelWidth = visualizerPanelWidth
+    if (activeLeftPanel === 'docker') panelWidth = dockerPanelWidth
     if (activeLeftPanel === 'projects') panelWidth = 1400
+    if (activeLeftPanel === 'database') panelWidth = 1400 // Full screen database panel
 
 
     return sidebarWidth + panelWidth
@@ -217,11 +227,14 @@ export default function MainPage() {
     // ✅ Projects panel: 1400px fixed, API & Visualizer panels are resizable
     const isApiPanel = activeLeftPanel === 'api'
     const isVisualizerPanel = activeLeftPanel === 'visualizer'
+    const isDockerPanel = activeLeftPanel === 'docker'
     const isProjectsPanel = activeLeftPanel === 'projects'
 
     let width = 250
     if (isApiPanel) width = apiPanelWidth
     if (isVisualizerPanel) width = visualizerPanelWidth
+    if (isProjectsPanel || activeLeftPanel === 'database') width = 1400
+    if (isDockerPanel) width = dockerPanelWidth
     if (isProjectsPanel) width = 1400
 
     return (
@@ -271,6 +284,30 @@ export default function MainPage() {
             {isResizingVisualizer && (
               <div className="absolute top-2 -right-16 bg-dark-bg border border-purple-500 rounded px-2 py-1 text-xs text-purple-400 shadow-lg pointer-events-none">
                 {visualizerPanelWidth}px
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ✅ Resize handle ONLY for Docker panel */}
+        {isDockerPanel && (
+          <div
+            onMouseDown={(e) => {
+              setIsResizingDocker(true)
+              e.preventDefault()
+            }}
+            className={`
+              absolute top-0 right-0 w-1 h-full cursor-col-resize transition-all z-10
+              ${isResizingDocker
+                ? 'bg-cyan-500 w-1'
+                : 'hover:bg-cyan-500/50'
+              }
+            `}
+            title="Drag to resize Docker panel"
+          >
+            {isResizingDocker && (
+              <div className="absolute top-2 -right-16 bg-dark-bg border border-cyan-500 rounded px-2 py-1 text-xs text-cyan-400 shadow-lg pointer-events-none">
+                {dockerPanelWidth}px
               </div>
             )}
           </div>
@@ -358,8 +395,8 @@ export default function MainPage() {
           {/* ✅ Left Panel - Only API is resizable, Projects is 1400px fixed */}
           {renderLeftPanel()}
 
-          {/* Center: Welcome OR Editor - HIDE when Projects panel is open */}
-          {activeLeftPanel !== 'projects' && (
+          {/* Center: Welcome OR Editor - HIDE when Projects or Database panel is open */}
+          {activeLeftPanel !== 'projects' && activeLeftPanel !== 'database' && (
             <div className="flex-1 flex flex-col min-w-0">
               {showEditor ? <EditorPage /> : <WelcomePage />}
             </div>
