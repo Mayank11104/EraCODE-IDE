@@ -135,9 +135,9 @@ EraCODE IDE follows a modern microservices architecture with three main componen
 └─────────────────────────────────────────────────────────┘
          │                    │                    │
          ▼                    ▼                    ▼
-   ┌──────────┐        ┌──────────┐        ┌──────────┐
-   │  Browser │        │  Docker  │        │   AWS    │
-   └──────────┘        └──────────┘        └──────────┘
+   ┌──────────┐        ┌──────────┐        ┌──────────────────────────────┐
+   │  Browser │        │  Docker  │        │   AWS/Mircosoft azure        │
+   └──────────┘        └──────────┘        └──────────────────────────────┘
 ```
 
 ### Components
