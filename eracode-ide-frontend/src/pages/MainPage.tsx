@@ -195,6 +195,7 @@ export default function MainPage() {
     if (activeLeftPanel === 'visualizer') panelWidth = visualizerPanelWidth
     if (activeLeftPanel === 'docker') panelWidth = dockerPanelWidth
     if (activeLeftPanel === 'projects') panelWidth = 1400
+    if (activeLeftPanel === 'database') panelWidth = 1400 // Full screen database panel
 
 
     return sidebarWidth + panelWidth
@@ -232,6 +233,7 @@ export default function MainPage() {
     let width = 250
     if (isApiPanel) width = apiPanelWidth
     if (isVisualizerPanel) width = visualizerPanelWidth
+    if (isProjectsPanel || activeLeftPanel === 'database') width = 1400
     if (isDockerPanel) width = dockerPanelWidth
     if (isProjectsPanel) width = 1400
 
@@ -393,8 +395,8 @@ export default function MainPage() {
           {/* ✅ Left Panel - Only API is resizable, Projects is 1400px fixed */}
           {renderLeftPanel()}
 
-          {/* Center: Welcome OR Editor - HIDE when Projects panel is open */}
-          {activeLeftPanel !== 'projects' && (
+          {/* Center: Welcome OR Editor - HIDE when Projects or Database panel is open */}
+          {activeLeftPanel !== 'projects' && activeLeftPanel !== 'database' && (
             <div className="flex-1 flex flex-col min-w-0">
               {showEditor ? <EditorPage /> : <WelcomePage />}
             </div>
