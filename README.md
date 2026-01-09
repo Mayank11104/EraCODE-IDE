@@ -521,6 +521,8 @@ If you have any questions or need help:
 
 **Star this repository if you find it helpful!**
 
-Made with ❤️ by [Mayank Chaudhari](https://github.com/Mayank11104)
-
+Made with ❤️ by 
+[Mayank Chaudhari](https://github.com/Mayank11104)
+[Shreyash Gadekar](https://github.com/Shreyash68)
+[Pranao Adhau](https://github.com/pranao0609)
 </div>
