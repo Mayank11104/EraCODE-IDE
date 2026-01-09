@@ -39,7 +39,7 @@ export default function MainPage() {
   // Left panel state
   const [activeLeftPanel, setActiveLeftPanel] = useState('explorer')
   const [showLeftPanel, setShowLeftPanel] = useState(true)
-  const [previousPanel, setPreviousPanel] = useState<string | null>(null) // ⭐ NEW - Track previous panel
+  const [previousPanel, setPreviousPanel] = useState<string | null>(null)
 
   // ✅ API Tester width state - Default 616px, Range 455-800px
   const [apiPanelWidth, setApiPanelWidth] = useState(616)
@@ -113,12 +113,14 @@ export default function MainPage() {
     }
   }, [isResizingApi, isResizingVisualizer, isSidebarHovered])
 
-  // ⭐ UPDATED - Handle sidebar click with Projects panel memory
+  // ⭐ UPDATED - Handle sidebar click with Projects, CI/CD, and Visualizer panel memory
   const handleSidebarClick = (panelId: string) => {
-    // If clicking Projects
-    if (panelId === 'projects') {
-      if (activeLeftPanel === 'projects') {
-        // Closing Projects - restore previous panel
+    // ⭐ Full-width panels that hide editor: projects, cicd, visualizer
+    const fullWidthPanels = ['projects', 'cicd', 'visualizer']
+    
+    if (fullWidthPanels.includes(panelId)) {
+      if (activeLeftPanel === panelId) {
+        // Closing full-width panel - restore previous panel
         if (previousPanel) {
           setActiveLeftPanel(previousPanel)
           setPreviousPanel(null)
@@ -126,9 +128,9 @@ export default function MainPage() {
           setActiveLeftPanel('explorer')
         }
       } else {
-        // Opening Projects - save current panel
+        // Opening full-width panel - save current panel
         setPreviousPanel(activeLeftPanel)
-        setActiveLeftPanel('projects')
+        setActiveLeftPanel(panelId)
         setShowLeftPanel(true)
       }
     } else {
@@ -176,22 +178,22 @@ export default function MainPage() {
     setCloudConfig(undefined)
   }
 
-  // ✅ Calculate terminal left position - Projects panel is 1400px fixed
+  // ✅ Calculate terminal left position - Projects: 1400px, CI/CD: 1200px, Visualizer: dynamic
   const getTerminalLeftPosition = () => {
     const sidebarWidth = isSidebarHovered ? 145 : 48
     if (!showLeftPanel) return sidebarWidth
 
-    // ✅ ONLY use dynamic width for API panel and Visualizer, fixed 250px for others
+    // ✅ ONLY use dynamic width for API panel and Visualizer, fixed widths for others
     let panelWidth = 250
     if (activeLeftPanel === 'api') panelWidth = apiPanelWidth
     if (activeLeftPanel === 'visualizer') panelWidth = visualizerPanelWidth
     if (activeLeftPanel === 'projects') panelWidth = 1400
-
+    if (activeLeftPanel === 'cicd') panelWidth = 1200
 
     return sidebarWidth + panelWidth
   }
 
-  // ✅ Render left panel - ONLY API panel gets resize handle
+  // ✅ Render left panel with smooth slide animation
   const renderLeftPanel = () => {
     if (!showLeftPanel) return null
 
@@ -213,21 +215,27 @@ export default function MainPage() {
       }
     })()
 
-    // ✅ ONLY API panel is resizable
-    // ✅ Projects panel: 1400px fixed, API & Visualizer panels are resizable
+    // ✅ ONLY API panel and Visualizer are resizable
+    // ✅ Projects: 1400px fixed, CI/CD: 1200px fixed, Visualizer: resizable
     const isApiPanel = activeLeftPanel === 'api'
     const isVisualizerPanel = activeLeftPanel === 'visualizer'
     const isProjectsPanel = activeLeftPanel === 'projects'
+    const isCICDPanel = activeLeftPanel === 'cicd'
 
     let width = 250
     if (isApiPanel) width = apiPanelWidth
     if (isVisualizerPanel) width = visualizerPanelWidth
     if (isProjectsPanel) width = 1400
+    if (isCICDPanel) width = 1200
 
     return (
       <div
-        className="h-full bg-dark-surface border-r border-dark-border relative shrink-0"
-        style={{ width: `${width}px` }}
+        className="h-full bg-dark-surface border-r border-dark-border relative shrink-0 transition-all duration-300 ease-in-out"
+        style={{ 
+          width: `${width}px`,
+          transform: showLeftPanel ? 'translateX(0)' : 'translateX(-100%)',
+          opacity: showLeftPanel ? 1 : 0
+        }}
       >
         {panelContent}
 
@@ -278,6 +286,9 @@ export default function MainPage() {
       </div>
     )
   }
+
+  // ⭐ Check if current panel should hide the editor
+  const shouldHideEditor = ['projects', 'cicd', 'visualizer'].includes(activeLeftPanel)
 
   return (
     <div className="h-screen w-full flex flex-col bg-dark-surface text-text-primary overflow-hidden">
@@ -355,15 +366,19 @@ export default function MainPage() {
 
         {/* Everything else to the right of sidebar */}
         <div className="flex flex-1 overflow-hidden">
-          {/* ✅ Left Panel - Only API is resizable, Projects is 1400px fixed */}
+          {/* ✅ Left Panel with smooth slide animation */}
           {renderLeftPanel()}
 
-          {/* Center: Welcome OR Editor - HIDE when Projects panel is open */}
-          {activeLeftPanel !== 'projects' && (
-            <div className="flex-1 flex flex-col min-w-0">
-              {showEditor ? <EditorPage /> : <WelcomePage />}
-            </div>
-          )}
+          {/* ⭐ Center: Welcome OR Editor with smooth fade animation */}
+          <div 
+            className={`flex-1 flex flex-col min-w-0 transition-all duration-300 ease-in-out ${
+              shouldHideEditor 
+                ? 'opacity-0 scale-95 pointer-events-none' 
+                : 'opacity-100 scale-100'
+            }`}
+          >
+            {showEditor ? <EditorPage /> : <WelcomePage />}
+          </div>
 
           {/* Right: Agent Panel */}
           <div
@@ -387,7 +402,7 @@ export default function MainPage() {
         {/* Bottom Section: Terminal - DYNAMIC POSITIONING */}
         {showTerminal && (
           <div
-            className="absolute bottom-0 right-0 z-50 transition-all duration-200"
+            className="absolute bottom-0 right-0 z-50 transition-all duration-300 ease-in-out"
             style={{
               left: `${getTerminalLeftPosition()}px`,
               right: showAgentPanel ? '340px' : '0'
