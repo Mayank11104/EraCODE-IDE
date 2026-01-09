@@ -12,7 +12,7 @@ import DebugPanel from '../components/panels/DebugPanel'
 import CICDPanel from '../components/panels/CICDPanel'
 import DockerPanel from '../components/panels/DockerPanel'
 import DeployPanel from '../components/panels/DeployPanel'
-import MonitoringPanel from '../components/panels/MonitoringPanel'
+import MonitoringPanel from '../components/panels/SystemMonitorPanel'
 import APITesterPanel from '../components/panels/APITesterPanel'
 import DatabasePanel from '../components/panels/DatabasePanel'
 import VisualizerPanel from '../components/panels/VisualizerPanel'
@@ -39,15 +39,13 @@ export default function MainPage() {
   // Left panel state
   const [activeLeftPanel, setActiveLeftPanel] = useState('explorer')
   const [showLeftPanel, setShowLeftPanel] = useState(true)
-  const [previousPanel, setPreviousPanel] = useState<string | null>(null) // ⭐ NEW - Track previous panel
+  const [previousPanel, setPreviousPanel] = useState<string | null>(null)
 
-  // ✅ API Tester width state - Default 616px, Range 455-800px
+  // ✅ Panel width states
   const [apiPanelWidth, setApiPanelWidth] = useState(616)
   const [isResizingApi, setIsResizingApi] = useState(false)
-  // ✅ Visualizer width state - Default 800px
   const [visualizerPanelWidth, setVisualizerPanelWidth] = useState(1000)
   const [isResizingVisualizer, setIsResizingVisualizer] = useState(false)
-  // ✅ Docker width state - Default 600px
   const [dockerPanelWidth, setDockerPanelWidth] = useState(1000)
   const [isResizingDocker, setIsResizingDocker] = useState(false)
 
@@ -76,7 +74,7 @@ export default function MainPage() {
     }
   }, [openFiles.length, showEditor])
 
-  // ✅ Handle API panel resize - Min 455px, Max 800px
+  // ✅ Handle API panel resize
   const handleApiResizeStart = (e: React.MouseEvent) => {
     setIsResizingApi(true)
     e.preventDefault()
@@ -90,15 +88,12 @@ export default function MainPage() {
       const newWidth = e.clientX - sidebarWidth
 
       if (isResizingApi) {
-        // ✅ Min: 455px, Max: 800px
         const clampedWidth = Math.max(1000, Math.min(newWidth, 1000))
         setApiPanelWidth(clampedWidth)
       } else if (isResizingVisualizer) {
-        // ✅ Min: 455px, Max: 1200px (Visualizer needs more space)
         const clampedWidth = Math.max(1000, Math.min(newWidth, 1200))
         setVisualizerPanelWidth(clampedWidth)
       } else if (isResizingDocker) {
-        // ✅ Min: 400px, Max: 1000px
         const clampedWidth = Math.max(400, Math.min(newWidth, 1000))
         setDockerPanelWidth(clampedWidth)
       }
@@ -121,12 +116,12 @@ export default function MainPage() {
     }
   }, [isResizingApi, isResizingVisualizer, isResizingDocker, isSidebarHovered])
 
-  // ⭐ UPDATED - Handle sidebar click with Projects panel memory
+  // ⭐ Handle sidebar click with full-width panel memory
   const handleSidebarClick = (panelId: string) => {
-    // If clicking Projects
-    if (panelId === 'projects') {
-      if (activeLeftPanel === 'projects') {
-        // Closing Projects - restore previous panel
+    const fullWidthPanels = ['projects', 'cicd', 'visualizer']
+    
+    if (fullWidthPanels.includes(panelId)) {
+      if (activeLeftPanel === panelId) {
         if (previousPanel) {
           setActiveLeftPanel(previousPanel)
           setPreviousPanel(null)
@@ -134,13 +129,11 @@ export default function MainPage() {
           setActiveLeftPanel('explorer')
         }
       } else {
-        // Opening Projects - save current panel
         setPreviousPanel(activeLeftPanel)
-        setActiveLeftPanel('projects')
+        setActiveLeftPanel(panelId)
         setShowLeftPanel(true)
       }
     } else {
-      // Normal panel behavior
       if (activeLeftPanel === panelId) {
         setShowLeftPanel(!showLeftPanel)
       } else {
@@ -184,24 +177,24 @@ export default function MainPage() {
     setCloudConfig(undefined)
   }
 
-  // ✅ Calculate terminal left position - Projects panel is 1400px fixed
+  // ✅ Calculate terminal left position
   const getTerminalLeftPosition = () => {
     const sidebarWidth = isSidebarHovered ? 145 : 48
     if (!showLeftPanel) return sidebarWidth
 
-    // ✅ ONLY use dynamic width for API panel and Visualizer, fixed 250px for others
     let panelWidth = 250
     if (activeLeftPanel === 'api') panelWidth = apiPanelWidth
     if (activeLeftPanel === 'visualizer') panelWidth = visualizerPanelWidth
     if (activeLeftPanel === 'docker') panelWidth = dockerPanelWidth
     if (activeLeftPanel === 'projects') panelWidth = 1400
-    if (activeLeftPanel === 'database') panelWidth = 1400 // Full screen database panel
-
+    if (activeLeftPanel === 'database') panelWidth = 1400
+    if (activeLeftPanel === 'cicd') panelWidth = 1200
+    if (activeLeftPanel === 'monitoring') panelWidth = 600
 
     return sidebarWidth + panelWidth
   }
 
-  // ✅ Render left panel - ONLY API panel gets resize handle
+  // ✅ Render left panel with smooth slide animation
   const renderLeftPanel = () => {
     if (!showLeftPanel) return null
 
@@ -223,24 +216,30 @@ export default function MainPage() {
       }
     })()
 
-    // ✅ ONLY API panel is resizable
-    // ✅ Projects panel: 1400px fixed, API & Visualizer panels are resizable
     const isApiPanel = activeLeftPanel === 'api'
     const isVisualizerPanel = activeLeftPanel === 'visualizer'
     const isDockerPanel = activeLeftPanel === 'docker'
     const isProjectsPanel = activeLeftPanel === 'projects'
+    const isDatabasePanel = activeLeftPanel === 'database'
+    const isCICDPanel = activeLeftPanel === 'cicd'
+    const isMonitoringPanel = activeLeftPanel === 'monitoring'
 
     let width = 250
     if (isApiPanel) width = apiPanelWidth
     if (isVisualizerPanel) width = visualizerPanelWidth
-    if (isProjectsPanel || activeLeftPanel === 'database') width = 1400
     if (isDockerPanel) width = dockerPanelWidth
-    if (isProjectsPanel) width = 1400
+    if (isProjectsPanel || isDatabasePanel) width = 1400
+    if (isCICDPanel) width = 1200
+    if (isMonitoringPanel) width = 600
 
     return (
       <div
-        className="h-full bg-dark-surface border-r border-dark-border relative shrink-0"
-        style={{ width: `${width}px` }}
+        className="h-full bg-dark-surface border-r border-dark-border relative shrink-0 transition-all duration-300 ease-in-out"
+        style={{ 
+          width: `${width}px`,
+          transform: showLeftPanel ? 'translateX(0)' : 'translateX(-100%)',
+          opacity: showLeftPanel ? 1 : 0
+        }}
       >
         {panelContent}
 
@@ -250,10 +249,7 @@ export default function MainPage() {
             onMouseDown={handleApiResizeStart}
             className={`
               absolute top-0 right-0 w-1 h-full cursor-col-resize transition-all z-10
-              ${isResizingApi
-                ? 'bg-blue-500 w-1'
-                : 'hover:bg-blue-500/50'
-              }
+              ${isResizingApi ? 'bg-blue-500 w-1' : 'hover:bg-blue-500/50'}
             `}
             title="Drag to resize API Tester panel"
           >
@@ -274,10 +270,7 @@ export default function MainPage() {
             }}
             className={`
               absolute top-0 right-0 w-1 h-full cursor-col-resize transition-all z-10
-              ${isResizingVisualizer
-                ? 'bg-purple-500 w-1'
-                : 'hover:bg-purple-500/50'
-              }
+              ${isResizingVisualizer ? 'bg-purple-500 w-1' : 'hover:bg-purple-500/50'}
             `}
             title="Drag to resize Visualizer panel"
           >
@@ -298,10 +291,7 @@ export default function MainPage() {
             }}
             className={`
               absolute top-0 right-0 w-1 h-full cursor-col-resize transition-all z-10
-              ${isResizingDocker
-                ? 'bg-cyan-500 w-1'
-                : 'hover:bg-cyan-500/50'
-              }
+              ${isResizingDocker ? 'bg-cyan-500 w-1' : 'hover:bg-cyan-500/50'}
             `}
             title="Drag to resize Docker panel"
           >
@@ -315,6 +305,9 @@ export default function MainPage() {
       </div>
     )
   }
+
+  // ⭐ Check if current panel should hide the editor
+  const shouldHideEditor = ['projects', 'cicd', 'visualizer', 'database'].includes(activeLeftPanel)
 
   return (
     <div className="h-screen w-full flex flex-col bg-dark-surface text-text-primary overflow-hidden">
@@ -339,10 +332,7 @@ export default function MainPage() {
           >
             <TerminalIcon
               size={18}
-              className={`transition-all ${showTerminal
-                ? 'drop-shadow-[0_0_8px_rgba(59,130,246,1)]'
-                : ''
-                }`}
+              className={`transition-all ${showTerminal ? 'drop-shadow-[0_0_8px_rgba(59,130,246,1)]' : ''}`}
             />
             <span className="text-xs font-medium">
               {showTerminal ? 'Terminal Active' : 'Open Terminal'}
@@ -366,10 +356,7 @@ export default function MainPage() {
           >
             <Bot
               size={18}
-              className={`transition-all ${showAgentPanel
-                ? 'drop-shadow-[0_0_8px_rgba(168,85,247,1)]'
-                : ''
-                }`}
+              className={`transition-all ${showAgentPanel ? 'drop-shadow-[0_0_8px_rgba(168,85,247,1)]' : ''}`}
             />
             <span className="text-xs font-medium">
               {showAgentPanel ? 'AI Agent Active' : 'Open AI Agent'}
@@ -392,15 +379,19 @@ export default function MainPage() {
 
         {/* Everything else to the right of sidebar */}
         <div className="flex flex-1 overflow-hidden">
-          {/* ✅ Left Panel - Only API is resizable, Projects is 1400px fixed */}
+          {/* ✅ Left Panel with smooth slide animation */}
           {renderLeftPanel()}
 
-          {/* Center: Welcome OR Editor - HIDE when Projects or Database panel is open */}
-          {activeLeftPanel !== 'projects' && activeLeftPanel !== 'database' && (
-            <div className="flex-1 flex flex-col min-w-0">
-              {showEditor ? <EditorPage /> : <WelcomePage />}
-            </div>
-          )}
+          {/* ⭐ Center: Welcome OR Editor with smooth fade animation */}
+          <div 
+            className={`flex-1 flex flex-col min-w-0 transition-all duration-300 ease-in-out ${
+              shouldHideEditor 
+                ? 'opacity-0 scale-95 pointer-events-none' 
+                : 'opacity-100 scale-100'
+            }`}
+          >
+            {showEditor ? <EditorPage /> : <WelcomePage />}
+          </div>
 
           {/* Right: Agent Panel */}
           <div
@@ -424,7 +415,7 @@ export default function MainPage() {
         {/* Bottom Section: Terminal - DYNAMIC POSITIONING */}
         {showTerminal && (
           <div
-            className="absolute bottom-0 right-0 z-50 transition-all duration-200"
+            className="absolute bottom-0 right-0 z-50 transition-all duration-300 ease-in-out"
             style={{
               left: `${getTerminalLeftPosition()}px`,
               right: showAgentPanel ? '340px' : '0'
@@ -441,7 +432,6 @@ export default function MainPage() {
           </div>
         )}
       </div>
-
     </div>
   )
 }

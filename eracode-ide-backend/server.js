@@ -14,7 +14,7 @@ const config = require('./config/config')
 const logger = require('./utils/logger')
 const initializeTerminalSocket = require('./sockets/terminal.socket')
 const gitRoutes = require('./routes/gitRoutes');
-
+const systemMonitorRoutes = require('./routes/systemMonitor.routes');
 // ========================================
 // INITIALIZE EXPRESS & SOCKET.IO
 // ========================================
@@ -77,7 +77,9 @@ app.get('/', (req, res) => {
       apiProxyHealth: '/api/proxy/health',
       websocket: 'ws://localhost:3001',
       wsProxy: 'ws://localhost:3001/ws-proxy?target=<url>', // ✅ NEW
-      wsEcho: 'ws://localhost:3001/ws-echo' // ✅ NEW
+      wsEcho: 'ws://localhost:3001/ws-echo', // ✅ NEW
+      systemMonitorSocket: '/system-monitor',
+      systemMonitor: '/api/system/metrics', 
     }
   })
 })
@@ -131,6 +133,7 @@ const databaseRoutes = require('./routes/databaseRoutes');
 app.use('/api/database', databaseRoutes);
 
 
+app.use('/api/system', systemMonitorRoutes);
 // ========================================
 // ✅ API PROXY ROUTES
 // ========================================
@@ -473,7 +476,9 @@ function handleEchoServer(ws) {
 // ========================================
 
 initializeTerminalSocket(io)
-
+// ✅ ADD THIS LINE
+const initializeSystemMonitorSocket = require('./sockets/systemMonitor.socket');
+initializeSystemMonitorSocket(io);
 // ========================================
 // START SERVER
 // ========================================
