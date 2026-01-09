@@ -439,6 +439,6 @@ If you have any questions or need help, please:
 
 **⭐ Star this repository if you find it helpful!**
 
-Made with ❤️ by [Mayank Sharma](https://github.com/Mayank11104)
+Made with ❤️ by [Mayank Chaudhari](https://github.com/Mayank11104)
 
 </div>
