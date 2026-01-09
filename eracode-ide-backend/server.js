@@ -119,6 +119,10 @@ app.use('/api/files', fileRoutes);
 const searchRoutes = require('./routes/searchRoutes');
 app.use('/api/search', searchRoutes);
 
+// ✅ DATABASE ROUTES
+const databaseRoutes = require('./routes/databaseRoutes');
+app.use('/api/database', databaseRoutes);
+
 
 // ========================================
 // ✅ API PROXY ROUTES
