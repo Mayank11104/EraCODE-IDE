@@ -1,59 +1,80 @@
 // src/components/panels/cicd/StatusBadge.tsx
 
-import { CheckCircle2, XCircle, Loader2, Clock, Pause } from 'lucide-react'
-
-type Status = 'running' | 'success' | 'failed' | 'pending' | 'paused'
+import { CheckCircle2, XCircle, Loader2, Clock, Ban } from 'lucide-react'
 
 interface StatusBadgeProps {
-  status: Status
+  status: 'queued' | 'in_progress' | 'completed'
+  conclusion?: 'success' | 'failure' | 'cancelled' | 'skipped' | null
   size?: 'sm' | 'md' | 'lg'
 }
 
-export default function StatusBadge({ status, size = 'md' }: StatusBadgeProps) {
-  const getStatusConfig = (status: Status) => {
-    const configs = {
-      running: {
+export default function StatusBadge({ status, conclusion, size = 'md' }: StatusBadgeProps) {
+  const getConfig = () => {
+    if (status === 'in_progress') {
+      return {
         icon: Loader2,
         label: 'Running',
         color: 'rgb(59, 130, 246)',
         bg: 'rgba(59, 130, 246, 0.15)',
         border: 'rgba(59, 130, 246, 0.4)',
         animate: true,
-      },
-      success: {
+      }
+    }
+    
+    if (status === 'queued') {
+      return {
+        icon: Clock,
+        label: 'Queued',
+        color: 'rgb(156, 163, 175)',
+        bg: 'rgba(156, 163, 175, 0.1)',
+        border: 'rgba(156, 163, 175, 0.3)',
+        animate: false,
+      }
+    }
+    
+    // Completed - check conclusion
+    if (conclusion === 'success') {
+      return {
         icon: CheckCircle2,
         label: 'Success',
         color: 'rgb(34, 197, 94)',
         bg: 'rgba(34, 197, 94, 0.15)',
         border: 'rgba(34, 197, 94, 0.4)',
         animate: false,
-      },
-      failed: {
+      }
+    }
+    
+    if (conclusion === 'failure') {
+      return {
         icon: XCircle,
         label: 'Failed',
         color: 'rgb(239, 68, 68)',
         bg: 'rgba(239, 68, 68, 0.15)',
         border: 'rgba(239, 68, 68, 0.4)',
         animate: false,
-      },
-      pending: {
-        icon: Clock,
-        label: 'Pending',
-        color: 'rgb(156, 163, 175)',
-        bg: 'rgba(156, 163, 175, 0.1)',
-        border: 'rgba(156, 163, 175, 0.3)',
-        animate: false,
-      },
-      paused: {
-        icon: Pause,
-        label: 'Paused',
+      }
+    }
+    
+    if (conclusion === 'cancelled') {
+      return {
+        icon: Ban,
+        label: 'Cancelled',
         color: 'rgb(234, 179, 8)',
         bg: 'rgba(234, 179, 8, 0.15)',
         border: 'rgba(234, 179, 8, 0.4)',
         animate: false,
-      },
+      }
     }
-    return configs[status]
+    
+    // Default
+    return {
+      icon: Clock,
+      label: 'Pending',
+      color: 'rgb(156, 163, 175)',
+      bg: 'rgba(156, 163, 175, 0.1)',
+      border: 'rgba(156, 163, 175, 0.3)',
+      animate: false,
+    }
   }
 
   const sizes = {
@@ -62,7 +83,7 @@ export default function StatusBadge({ status, size = 'md' }: StatusBadgeProps) {
     lg: { icon: 16, text: 'text-sm', padding: 'px-3 py-1.5' },
   }
 
-  const config = getStatusConfig(status)
+  const config = getConfig()
   const sizeConfig = sizes[size]
   const Icon = config.icon
 

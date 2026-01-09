@@ -12,7 +12,7 @@ import DebugPanel from '../components/panels/DebugPanel'
 import CICDPanel from '../components/panels/CICDPanel'
 import DockerPanel from '../components/panels/DockerPanel'
 import DeployPanel from '../components/panels/DeployPanel'
-import MonitoringPanel from '../components/panels/MonitoringPanel'
+import MonitoringPanel from '../components/panels/SystemMonitorPanel'
 import APITesterPanel from '../components/panels/APITesterPanel'
 import DatabasePanel from '../components/panels/DatabasePanel'
 import VisualizerPanel from '../components/panels/VisualizerPanel'
@@ -178,7 +178,7 @@ export default function MainPage() {
     setCloudConfig(undefined)
   }
 
-  // ✅ Calculate terminal left position - Projects: 1400px, CI/CD: 1200px, Visualizer: dynamic
+  // ✅ Calculate terminal left position - Projects: 1400px, CI/CD: 1200px, Monitoring: 600px, Visualizer: dynamic
   const getTerminalLeftPosition = () => {
     const sidebarWidth = isSidebarHovered ? 145 : 48
     if (!showLeftPanel) return sidebarWidth
@@ -189,6 +189,7 @@ export default function MainPage() {
     if (activeLeftPanel === 'visualizer') panelWidth = visualizerPanelWidth
     if (activeLeftPanel === 'projects') panelWidth = 1400
     if (activeLeftPanel === 'cicd') panelWidth = 1200
+    if (activeLeftPanel === 'monitoring') panelWidth = 600 // ✅ System Monitor: 600px
 
     return sidebarWidth + panelWidth
   }
@@ -216,17 +217,19 @@ export default function MainPage() {
     })()
 
     // ✅ ONLY API panel and Visualizer are resizable
-    // ✅ Projects: 1400px fixed, CI/CD: 1200px fixed, Visualizer: resizable
+    // ✅ Projects: 1400px fixed, CI/CD: 1200px fixed, Monitoring: 600px fixed, Visualizer: resizable
     const isApiPanel = activeLeftPanel === 'api'
     const isVisualizerPanel = activeLeftPanel === 'visualizer'
     const isProjectsPanel = activeLeftPanel === 'projects'
     const isCICDPanel = activeLeftPanel === 'cicd'
+    const isMonitoringPanel = activeLeftPanel === 'monitoring' // ✅ System Monitor
 
     let width = 250
     if (isApiPanel) width = apiPanelWidth
     if (isVisualizerPanel) width = visualizerPanelWidth
     if (isProjectsPanel) width = 1400
     if (isCICDPanel) width = 1200
+    if (isMonitoringPanel) width = 600 // ✅ System Monitor: 600px
 
     return (
       <div

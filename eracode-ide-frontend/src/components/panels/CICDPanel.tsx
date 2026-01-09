@@ -1,113 +1,215 @@
 // src/components/panels/CICDPanel.tsx
 
 import { useState } from 'react'
-import { Play, Clock, CheckCircle2, XCircle, Settings, Plus, GitBranch } from 'lucide-react'
-import PipelineOverview from './cicd/PipelineOverview'
-import PipelineBuilder from './cicd/PipelineBuilder'
-import BuildHistory from './cicd/BuildHistory'
-
-type Tab = 'overview' | 'builder' | 'history'
+import { useGitHubConnection } from '../../hooks/useGitHubConnection'
+import { useGitHubWorkflows } from '../../hooks/useGitHubWorkflows'
+import { useWorkflowRuns } from '../../hooks/useWorkflowRuns'
+import { Workflow } from '../../types/github.types'
+import GitHubConnection from './cicd/GitHubConnection'
+import WorkflowsList from './cicd/WorkflowsList'
+import RunHistory from './cicd/RunHistory'
+import LivePipelineViewer from './cicd/LivePipelineViewer'
+import WorkflowTriggerModal from './cicd/WorkflowTriggerModal'
+import { RefreshCw, LogOut, History, FileCode, Activity } from 'lucide-react'
 
 export default function CICDPanel() {
-  const [activeTab, setActiveTab] = useState<Tab>('overview')
+  // Tab state
+  const [activeTab, setActiveTab] = useState<'workflows' | 'history'>('workflows')
+  
+  // Selected run for viewer
+  const [selectedRunId, setSelectedRunId] = useState<number | null>(null)
+  
+  // Trigger modal state
+  const [triggerModalWorkflow, setTriggerModalWorkflow] = useState<Workflow | null>(null)
 
-  const tabs = [
-    { id: 'overview', label: 'Overview', icon: GitBranch },
-    { id: 'builder', label: 'Pipeline Builder', icon: Settings },
-    { id: 'history', label: 'Build History', icon: Clock },
-  ]
+  // GitHub connection
+  const { config, isConnected, isVerifying, service, connect, disconnect } = useGitHubConnection()
+
+  // Workflows
+  const { workflows, loading: workflowsLoading, refetch: refetchWorkflows } = useGitHubWorkflows(service)
+
+  // Runs history
+  const { runs, loading: runsLoading, refetch: refetchRuns, activateBurstMode } = useWorkflowRuns(service, true, 5000)
+
+  // Handle workflow trigger with modal
+  const handleTriggerWithModal = async (workflowId: number, branch: string) => {
+  if (!service) return
+  
+  try {
+    await service.triggerWorkflow(workflowId, branch)
+    
+    // ⭐ Activate aggressive polling
+    activateBurstMode()
+    
+  } catch (error) {
+    console.error('Failed to trigger workflow:', error)
+    throw error
+  }
+}
+  // Handle disconnect
+  const handleDisconnect = () => {
+    disconnect()
+    setSelectedRunId(null)
+    setTriggerModalWorkflow(null)
+  }
+
+  // Handle refresh
+  const handleRefresh = () => {
+    if (activeTab === 'workflows') {
+      refetchWorkflows()
+    }
+    refetchRuns()
+  }
+
+  // Not connected - show connection form
+  if (!isConnected) {
+    return <GitHubConnection onConnect={connect} isVerifying={isVerifying} />
+  }
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full bg-dark-base">
       {/* Header */}
-      <div
-        className="px-6 py-4 border-b flex items-center justify-between"
-        style={{
-          background: 'rgba(255, 255, 255, 0.02)',
-          borderColor: 'rgba(255, 255, 255, 0.05)',
-        }}
-      >
-        <div className="flex items-center gap-3">
-          <div
-            className="p-2 rounded-xl"
-            style={{
-              background: 'linear-gradient(135deg, rgba(168, 85, 247, 0.2) 0%, rgba(147, 51, 234, 0.3) 100%)',
-              border: '1px solid rgba(168, 85, 247, 0.3)',
-            }}
-          >
-            <Play size={20} className="text-purple-400" />
-          </div>
+      <div className="px-6 py-4 border-b border-dark-border flex-shrink-0">
+        <div className="flex items-center justify-between mb-4">
           <div>
-            <h2 className="text-lg font-semibold text-white">CI/CD Pipeline</h2>
-            <p className="text-xs text-gray-400">Continuous Integration & Deployment</p>
+            <h2 className="text-lg font-bold text-white flex items-center gap-2">
+              <Activity size={20} className="text-purple-400" />
+              CI/CD Pipeline
+            </h2>
+            <p className="text-xs text-gray-400 flex items-center gap-1.5 mt-1">
+              <span 
+                className="inline-block w-2 h-2 rounded-full animate-pulse"
+                style={{ 
+                  background: 'rgb(34, 197, 94)',
+                  boxShadow: '0 0 10px rgba(34, 197, 94, 0.5)'
+                }}
+              />
+              Connected to{' '}
+              <span className="font-medium text-purple-400">
+                {config?.owner}/{config?.repo}
+              </span>
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleRefresh}
+              className="p-2 rounded-lg transition-all hover:bg-white/5"
+              title="Refresh"
+            >
+              <RefreshCw 
+                size={16} 
+                className={`text-gray-400 hover:text-purple-400 transition-colors ${
+                  workflowsLoading || runsLoading ? 'animate-spin' : ''
+                }`}
+              />
+            </button>
+            <button
+              onClick={handleDisconnect}
+              className="p-2 rounded-lg transition-all hover:bg-white/5 group"
+              title="Disconnect"
+            >
+              <LogOut size={16} className="text-gray-400 group-hover:text-red-400 transition-colors" />
+            </button>
           </div>
         </div>
 
-        {/* Quick Actions */}
-        <div className="flex items-center gap-2">
+        {/* Tabs */}
+        <div className="flex gap-2">
           <button
-            className="px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 flex items-center gap-2"
+            onClick={() => {
+              setActiveTab('workflows')
+              setSelectedRunId(null)
+            }}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium transition-all ${
+              activeTab === 'workflows'
+                ? 'text-purple-400 border border-purple-500/40'
+                : 'text-gray-400 hover:text-white hover:bg-white/5'
+            }`}
             style={{
-              background: 'linear-gradient(135deg, rgba(168, 85, 247, 0.8) 0%, rgba(147, 51, 234, 0.9) 100%)',
-              border: '1px solid rgba(168, 85, 247, 0.6)',
-              color: 'white',
-              boxShadow: '0 4px 15px rgba(168, 85, 247, 0.3)',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.transform = 'scale(1.02)'
-              e.currentTarget.style.boxShadow = '0 6px 20px rgba(168, 85, 247, 0.4)'
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.transform = 'scale(1)'
-              e.currentTarget.style.boxShadow = '0 4px 15px rgba(168, 85, 247, 0.3)'
+              background: activeTab === 'workflows' 
+                ? 'linear-gradient(135deg, rgba(168, 85, 247, 0.15) 0%, rgba(147, 51, 234, 0.1) 100%)'
+                : 'transparent'
             }}
           >
-            <Plus size={16} />
-            New Pipeline
+            <FileCode size={14} />
+            Workflows {workflows.length > 0 && `(${workflows.length})`}
+          </button>
+          
+          <button
+            onClick={() => {
+              setActiveTab('history')
+              // Don't clear selectedRunId when switching to history
+            }}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium transition-all ${
+              activeTab === 'history'
+                ? 'text-purple-400 border border-purple-500/40'
+                : 'text-gray-400 hover:text-white hover:bg-white/5'
+            }`}
+            style={{
+              background: activeTab === 'history' 
+                ? 'linear-gradient(135deg, rgba(168, 85, 247, 0.15) 0%, rgba(147, 51, 234, 0.1) 100%)'
+                : 'transparent'
+            }}
+          >
+            <History size={14} />
+            History {runs.length > 0 && `(${runs.length})`}
           </button>
         </div>
       </div>
 
-      {/* Tabs */}
-      <div
-        className="px-6 py-3 border-b flex items-center gap-2"
-        style={{
-          background: 'rgba(255, 255, 255, 0.01)',
-          borderColor: 'rgba(255, 255, 255, 0.05)',
-        }}
-      >
-        {tabs.map((tab) => {
-          const Icon = tab.icon
-          const isActive = activeTab === tab.id
+      {/* Content - Split into two sections */}
+      <div className="flex-1 overflow-hidden flex flex-col">
+        {/* Pipeline Viewer - Fixed at top when run is selected */}
+        {selectedRunId && activeTab === 'history' && (
+          <div className="flex-shrink-0 p-6 pb-0 overflow-y-auto max-h-[50vh]">
+            <LivePipelineViewer
+              runId={selectedRunId}
+              service={service}
+              onClose={() => setSelectedRunId(null)}
+            />
+          </div>
+        )}
 
-          return (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id as Tab)}
-              className="px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 flex items-center gap-2"
-              style={{
-                background: isActive
-                  ? 'linear-gradient(135deg, rgba(168, 85, 247, 0.2) 0%, rgba(147, 51, 234, 0.3) 100%)'
-                  : 'rgba(255, 255, 255, 0.04)',
-                border: isActive
-                  ? '1px solid rgba(168, 85, 247, 0.6)'
-                  : '1px solid rgba(255, 255, 255, 0.1)',
-                color: isActive ? 'rgb(168, 85, 247)' : 'rgba(255, 255, 255, 0.6)',
-              }}
-            >
-              <Icon size={16} />
-              {tab.label}
-            </button>
-          )
-        })}
+        {/* Main Content Area - Scrollable */}
+        <div className="flex-1 overflow-y-auto p-6">
+          {/* Workflows Tab */}
+          {activeTab === 'workflows' && (
+            <div className="animate-in fade-in slide-in-from-bottom-4 duration-300">
+              <WorkflowsList
+                workflows={workflows}
+                loading={workflowsLoading}
+                service={service}
+                onTriggerClick={(workflow) => setTriggerModalWorkflow(workflow)}
+                onRefresh={handleRefresh}
+              />
+            </div>
+          )}
+
+          {/* History Tab */}
+          {activeTab === 'history' && (
+            <div className="animate-in fade-in slide-in-from-bottom-4 duration-300">
+              <RunHistory
+                runs={runs}
+                loading={runsLoading}
+                onRunClick={(runId) => {
+                  console.log('🎯 Run clicked:', runId)
+                  setSelectedRunId(runId)
+                }}
+              />
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* Content */}
-      <div className="flex-1 overflow-y-auto">
-        {activeTab === 'overview' && <PipelineOverview />}
-        {activeTab === 'builder' && <PipelineBuilder />}
-        {activeTab === 'history' && <BuildHistory />}
-      </div>
+      {/* Workflow Trigger Modal */}
+      {triggerModalWorkflow && (
+        <WorkflowTriggerModal
+          workflow={triggerModalWorkflow}
+          onTrigger={handleTriggerWithModal}
+          onClose={() => setTriggerModalWorkflow(null)}
+        />
+      )}
     </div>
   )
 }
